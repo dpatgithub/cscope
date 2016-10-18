@@ -63,7 +63,7 @@ char	*strchr();
 #define	FMTVERSION	1	/* inverted index format version */
 #define	ZIPFSIZE	200	/* zipf curve size */
 
-static char const rcsid[] = "$Id: invlib.c,v 1.7 2000/05/09 13:34:35 broeker Exp $";
+static char const rcsid[] = "$Id: invlib.c,v 1.8 2000/05/18 15:21:21 broeker Exp $";
 
 int	invbreak;
 
@@ -73,7 +73,6 @@ static	void	invstep(INVCONTROL *invcntl);
 static	void	invcannotalloc(unsigned n);
 static	void	invcannotopen(char *file);
 static	void	invcannotwrite(char *file);
-extern	FILE	*vpfopen(char *filename, char *type);
 
 #if STATS
 int	showzipf;	/* show postings per term distribution */

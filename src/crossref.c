@@ -39,9 +39,8 @@
 #include "global.h"
 #include <stdlib.h>
 
-static char const rcsid[] = "$Id: crossref.c,v 1.4 2000/05/05 17:35:00 broeker Exp $";
+static char const rcsid[] = "$Id: crossref.c,v 1.6 2000/10/09 19:33:34 petr Exp $";
 
-extern	int	myylineno;
 
 /* convert long to a string */
 #define	ltobase(value)	n = value; \
@@ -221,7 +220,7 @@ putcrossref(void)
 	/* output the source line */
 	lineoffset = dboffset;
 	dboffset += fprintf(newrefs, "%d ", lineno);
-#if BSD && !sun
+#if BSD && !sun && !__FreeBSD__
 	dboffset = ftell(newrefs); /* fprintf doesn't return chars written */
 #endif
 	blank = NO;

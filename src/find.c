@@ -36,10 +36,14 @@
  */
 
 #include "global.h"
+#if defined(USE_NCURSES) && !defined(RENAMED_NCURSES)
+#include <ncurses.h>
+#else
 #include <curses.h>
+#endif
 #include <regex.h>
 
-static char const rcsid[] = "$Id: find.c,v 1.5 2000/05/04 19:06:06 petr Exp $";
+static char const rcsid[] = "$Id: find.c,v 1.9 2000/05/31 16:54:10 petr Exp $";
 
 /* most of these functions have been optimized so their innermost loops have
  * only one test for the desired character by putting the char and 
@@ -68,18 +72,16 @@ static	BOOL	matchrest(void);
 static	POSTING	*getposting(void);
 static	char	*lcasify(char *s);
 static	void	findcalledbysub(char *file, BOOL macro);
-static	void	findterm(void);
+static	void	findterm(char *pattern);
 static	void	putline(FILE *output);
 static	void	putpostingref(POSTING *p, char *pat);
 static	void	putref(int seemore, char *file, char *func);
 static	void	putsource(int seemore, FILE *output);
-extern	void	boolclear(void);
-extern	POSTING	*boolfile(INVCONTROL *invcntl, long *num, int boolarg);
 
 /* find the symbol in the cross-reference */
 
-void
-findsymbol(void)
+char *
+findsymbol(char *pattern)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 	char	function[PATLEN + 1];	/* function name */
@@ -94,14 +96,14 @@ findsymbol(void)
 		long	lastline = 0;
 		POSTING *p;
 
-		findterm();
+		findterm(pattern);
 		while ((p = getposting()) != NULL) {
 			if (p->type != INCLUDE && p->lineoffset != lastline) {
 				putpostingref(p, 0);
 				lastline = p->lineoffset;
 			}
 		}
-		return;
+		return NULL;
 	}
 
 	(void) scanpast('\t');			/* find the end of the header */
@@ -142,9 +144,9 @@ findsymbol(void)
 			
 				/* check for the end of the symbols */
 				if (*file == '\0') {
-					return;
+					return NULL;
 				}
-				progress(NULL);
+				progress("Search", searchcount, nsrcfiles);
 				/* FALLTHROUGH */
 				
 			case FCNEND:		/* function end */
@@ -250,7 +252,7 @@ findsymbol(void)
 					putref(0, file, global);
 				}
 				if (blockp == NULL) {
-					return;
+					return NULL;
 				}
 			}
 		notmatched:
@@ -258,18 +260,20 @@ findsymbol(void)
 		}
 	}
 	blockp = cp;
+
+	return NULL;
 }
 /* find the function definition or #define */
 
-void
-finddef(void)
+char *
+finddef(char *pattern)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 
 	if (invertedindex == YES) {
 		POSTING *p;
 
-		findterm();
+		findterm(pattern);
 		while ((p = getposting()) != NULL) {
 			switch (p->type) {
 			case DEFINE:/* could be a macro */
@@ -284,7 +288,7 @@ finddef(void)
 				putpostingref(p, pattern);
 			}
 		}
-		return;
+		return NULL;
 	}
 
 
@@ -296,9 +300,9 @@ finddef(void)
 			skiprefchar();	/* save file name */
 			putstring(file);
 			if (*file == '\0') {	/* if end of symbols */
-				return;
+				return NULL;
 			}
-			progress(NULL);
+			progress("Search", searchcount, nsrcfiles);
 			break;
 
 		case DEFINE:		/* could be a macro */
@@ -319,14 +323,18 @@ finddef(void)
 			break;
 		}
 	}
+	
+	return NULL;
 }
 /* find all function definitions (used by samuel only) */
 
-void
-findallfcns(void)
+char *
+findallfcns(char *dummy)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 	char	function[PATLEN + 1];	/* function name */
+
+	(void) dummy;		/* unused argument */
 
 	/* find the next file name or definition */
 	while (scanpast('\t') != NULL) {
@@ -336,9 +344,9 @@ findallfcns(void)
 			skiprefchar();	/* save file name */
 			putstring(file);
 			if (*file == '\0') {	/* if end of symbols */
-				return;
+				return NULL;
 			}
-			progress(NULL);
+			progress("Search", searchcount, nsrcfiles);
 			/* FALLTHROUGH */
 			
 		case FCNEND:		/* function end */
@@ -355,12 +363,13 @@ findallfcns(void)
 			break;
 		}
 	}
+	return NULL;
 }
 
 /* find the functions calling this function */
 
-void
-findcalling(void)
+char *
+findcalling(char *pattern)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 	char	function[PATLEN + 1];	/* function name */
@@ -372,13 +381,13 @@ findcalling(void)
 	if (invertedindex == YES) {
 		POSTING	*p;
 		
-		findterm();
+		findterm(pattern);
 		while ((p = getposting()) != NULL) {
 			if (p->type == FCNCALL) {
 				putpostingref(p, 0);
 			}
 		}
-		return;
+		return NULL;
 	}
 	/* find the next file name or function definition */
 	*macro = '\0';	/* a macro can be inside a function, but not vice versa */
@@ -392,9 +401,9 @@ findcalling(void)
 			skiprefchar();
 			putstring(file);
 			if (*file == '\0') {	/* if end of symbols */
-				return;
+				return NULL;
 			}
-			progress(NULL);
+			progress("Search", searchcount, nsrcfiles);
 			(void) strcpy(function, global);
 			break;
 			
@@ -446,12 +455,14 @@ findcalling(void)
 		}
 	}
 	morefuns = 0;
+	
+	return NULL;
 }
 
 /* find the text in the source files */
 
 char *
-findstring(void)
+findstring(char *pattern)
 {
 	char	egreppat[2 * PATLEN];
 	char	*cp, *pp;
@@ -484,7 +495,7 @@ findregexp(char *egreppat)
 		/* search the files */
 		for (i = 0; i < nsrcfiles; ++i) {
 			char *file = filepath(srcfiles[i]);
-			progress(NULL);
+			progress("Search", searchcount, nsrcfiles);
 			if (egrep(file, refsfound, "%s <unknown> %ld ") < 0) {
 				move(1, 0);
 				clrtoeol();
@@ -498,11 +509,13 @@ findregexp(char *egreppat)
 
 /* find matching file names */
 
-void
-findfile(void)
+char *
+findfile(char *dummy)
 {
 	int	i;
 	
+	(void) dummy;		/* unused argument */
+
 	for (i = 0; i < nsrcfiles; ++i) {
 		char *s;
 		if (caseless == YES) {
@@ -516,25 +529,27 @@ findfile(void)
 				srcfiles[i]);
 		}
 	}
+
+	return NULL;
 }
 
 /* find files #including this file */
 
-void
-findinclude(void)
+char *
+findinclude(char *pattern)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 
 	if (invertedindex == YES) {
 		POSTING *p;
 
-		findterm();
+		findterm(pattern);
 		while ((p = getposting()) != NULL) {
 			if (p->type == INCLUDE) {
 				putpostingref(p, 0);
                         }
                 }
-                return;
+                return NULL;
         }
 
 	/* find the next file name or function definition */
@@ -545,9 +560,9 @@ findinclude(void)
 			skiprefchar();
 			putstring(file);
 			if (*file == '\0') {	/* if end of symbols */
-				return;
+				return NULL;
 			}
-			progress(NULL);
+			progress("Search", searchcount, nsrcfiles);
 			break;
 			
 		case INCLUDE:		/* match function called to pattern */
@@ -560,18 +575,24 @@ findinclude(void)
 			}
 		}
 	}
+	
+	return NULL;
 }
 
 /* initialize */
 
 FINDINIT
-findinit(void)
+findinit(char *pattern)
 {
 	char	buf[PATLEN + 3];
 	BOOL	isregexp = NO;
 	int	i;
 	char	*s;
 	unsigned c;
+
+	/* HBB: be nice: free regexp before allocating a new one */
+	if(isregexp_valid == YES)
+		regfree(&regexp);
 
 	isregexp_valid = NO;
 
@@ -916,29 +937,34 @@ lcasify(char *s)
 
 /* find the functions called by this function */
 
-BOOL
-findcalledby(void)
+/* HBB 2000/05/05: for consitency of calling interface between the
+ * different 'find...()' functions, this now returns a char pointer,
+ * too. Implemented as a pointer to static storage containing 'y' or
+ * 'n', for the boolean result values YES and NO */
+
+char *
+findcalledby(char *pattern)
 {
 	char	file[PATHLEN + 1];	/* source file name */
-	BOOL	found_caller = NO;	/* seen calling function? */
+	static char found_caller = 'n'; /* seen calling function? */
 	BOOL	macro = NO;
 
 	if (invertedindex == YES) {
 		POSTING	*p;
 		
-		findterm();
+		findterm(pattern);
 		while ((p = getposting()) != NULL) {
 			switch (p->type) {
 			case DEFINE:		/* could be a macro */
 			case FCNDEF:
 				if (dbseek(p->lineoffset) != -1 &&
 				    scanpast('\t') != NULL) {	/* skip def */
-					found_caller = YES;
+					found_caller = 'y';
 					findcalledbysub(srcfiles[p->fileindex], macro);
 				}
 			}
 		}
-		return(found_caller);
+		return(&found_caller);
 	}
 	/* find the function definition(s) */
 	while (scanpast('\t') != NULL) {
@@ -948,9 +974,9 @@ findcalledby(void)
 			skiprefchar();	/* save file name */
 			putstring(file);
 			if (*file == '\0') {	/* if end of symbols */
-				return(found_caller);
+				return(&found_caller);
 			}
-			progress(NULL);
+			progress("Search", searchcount, nsrcfiles);
 			break;
 
 		case DEFINE:		/* could be a macro */
@@ -963,20 +989,20 @@ findcalledby(void)
 		case FCNDEF:
 			skiprefchar();	/* match name to pattern */
 			if (match()) {
-				found_caller = YES;
+				found_caller = 'y';
 				findcalledbysub(file, macro);
 			}
 			break;
 		}
 	}
 
-	return (found_caller);
+	return (&found_caller);
 }
 
 /* find this term, which can be a regular expression */
 
 static void
-findterm(void)
+findterm(char *pattern)
 {
 	char	*s;
 	int	len;
@@ -1045,7 +1071,7 @@ findterm(void)
 		}
 		/* display progress about every three seconds */
 		if (++searchcount % 50 == 0) {
-			progress("%ld of %ld symbols matched", searchcount, totalterms);
+			progress("Symbols matched", searchcount, totalterms);
 		}
 	} while (invforward(&invcontrol));	/* while didn't wrap around */
 	
@@ -1064,7 +1090,7 @@ getposting(void)
 	}
 	/* display progress about every three seconds */
 	if (++searchcount % 100 == 0) {
-		progress("%ld of %ld possible references retrieved", searchcount,
+		progress("Possible references retrieved", searchcount,
 		    postingsfound);
 	}
 	return(postingp++);

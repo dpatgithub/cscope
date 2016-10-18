@@ -1,3 +1,40 @@
+(2000/11/22 - petrs) Updated date to cscope.1 man page and retagged the file
+(2000/11/22 - petrs) Tagged cvs tree as v15_1
+(2000/11/21 - petrs) Added UnixWare 7 packaging scripts
+(2000/11/20 - petrs) 15.1 version name, man page update, README update
+(2000/10/09 - atrn) better FreeBSD support
+(2000/10/02 - fritsch) better BeOS support
+(2000/10/02 - salz) -i now accepts '-' for a list of files from stdio
+(2000/09/19 - brent) fixed -R to handle similarly named files
+(2000/05/31 - mascott) ncurses.h gets picked up correctly for FreeBSD
+(2000/05/18 - hops) display errors via varargs posterr(ap, ..)
+                    start changing sprintfs to snprintfs
+                    buildonly not go into curses - set linemode 
+                        - fixes buildonly coredump
+                    explicitly initialise some booleans in main.c
+                    handle error messages nicely - curses msgline2 line 
+                    or stdout - using snprintf+posterr(buf). 
+                    Clear msg2 line  on ^L command.c.
+                    Support BS in getline()  input.c.
+                    Add build support for contrib dir.
+(2000/05/18 - broeker) move declarations of invlib.c functions to invlib.h,
+                       from global.h
+(2000/05/18 - broeker) it's 'myylineno', not 'yylineno'
+(2000/05/18 - broeker) don't #include <config.h>, but "config.h" --
+                       it's not a system header file, after all.
+(2000/05/18 - broeker) don't #include "global.h" from egrep.y -- the
+                       extern declaration for yylex() only confuses
+                       it, and it doesn't need most of "global.h",
+                       anyway.
+(2000/05/18 - broeker) no more 'extern' declaration in .c files -- they
+                       belong into the headers. For now, most of them move to
+                       "global.h".
+(2000/05/18 - broeker) don't cast function pointers -- make all the
+                       find*() function follow the same prototype,
+                       instead. This affects their definitions, too.
+(2000/05/17 - sharpe) progress bar, tab between line selection and option,
+                      new support for more than nine line selections
+(2000/05/15 - petr) version 15.0bl3 now, spec file change
 (2000/05/10 - klausner) NetBSD current support
 (2000/05/09 - petr) added packages directory and cscope.spec file
 (2000/05/09 - broeker) alloc.c, invlib.c, invlib.h: initial 64bit support
@@ -7,7 +44,7 @@
                        in calls to malloc() family of routines
 (2000/05/04 - hops) configure: find flex libs in /usr/local, 
                     cmdline args to specify use of flex/lex, yacc/byacc/bison
-(2000/06/03 - broeker) some code cleanup
+(2000/05/03 - broeker) some code cleanup
 (2000/05/03 - broeker) more code cleanup and -Wall warnings removal
 (2000/05/03 - broeker) major code cleanup and fixing of memory leaks
 (2000/05/03 - broeker) configure checks for vsnprintf

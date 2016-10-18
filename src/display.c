@@ -41,13 +41,18 @@
 #else
 #include "version.h"	/* FILEVERSION and FIXVERSION */
 #endif
-#include <curses.h>	/* LINES, COLS */
+#if defined(USE_NCURSES) && !defined(RENAMED_NCURSES)
+#include <ncurses.h>
+#else
+#include <curses.h>
+#endif
 #include <setjmp.h>	/* jmp_buf */
 #include <stdarg.h>	/* va_list stuff */
 #include <time.h>
-#include <errno.h>      /* sys_errlist 18-Apr-2000 hops */
+#include <errno.h>
+#include <stdarg.h>
 
-static char const rcsid[] = "$Id: display.c,v 1.7 2000/05/05 17:35:00 broeker Exp $";
+static char const rcsid[] = "$Id: display.c,v 1.12 2000/05/31 16:54:10 petr Exp $";
 
 int	booklen;		/* OGS book name display field length */
 int	*displine;		/* screen line of displayed reference */
@@ -66,46 +71,38 @@ int	subsystemlen;		/* OGS subsystem name display field length */
 int	totallines;		/* total reference lines */
 unsigned fldcolumn;		/* input field column */
 
+const char	dispchars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
 static	int	fldline;		/* input field line */
 static	jmp_buf	env;			/* setjmp/longjmp buffer */
-static	int	lastdispline;		/* last displayed reference line */
+int		lastdispline;		/* last displayed reference line */
 static	char	lastmsg[MSGLEN + 1];	/* last message displayed */
 static	char	helpstring[] = "Press the ? key for help";
 static	char	selprompt[] = 
 	"Select lines to change (press the ? key for help): ";
 
-#if BSD	/* compiler bug workaround */
-#define	Void	char *
-#else
-#define	Void	void
-#endif
+typedef char * (*FP)(char *);	/* pointer to function returning a character pointer */
 
-extern	BOOL	findcalledby(void);
-extern	char	*findstring(void);
-extern	Void	findcalling(void);
-extern	Void	findallfcns(void);
-extern	Void	finddef(void);
-extern	Void	findfile(void);
-extern	Void	findinclude(void);
-extern	Void	findsymbol(void);
-
-typedef char *(*FP)();	/* pointer to function returning a character pointer */
-
+/* HBB 2000/05/05: I removed the casts to function pointer type. It is
+ * fundamentally unsafe to call a function through a pointer of a
+ * different type ('undefined behaviour' in the words of the ANSI/ISO
+ * C standard).  Instead, I made all the find...() functions adhere to
+ * the same function type, by changing argument passing a bit. */
 static	struct	{		/* text of input fields */
 	char	*text1;
 	char	*text2;
 	FP	findfcn;
 } fields[FIELDS + 1] = {	/* samuel has a search that is not part of the cscope display */
-	{"Find this", "C symbol",			(FP) findsymbol},
-	{"Find this", "global definition",		(FP) finddef},
-	{"Find", "functions called by this function",	(FP) findcalledby},
-	{"Find", "functions calling this function",	(FP) findcalling},
+	{"Find this", "C symbol",			findsymbol},
+	{"Find this", "global definition",		finddef},
+	{"Find", "functions called by this function",	findcalledby},
+	{"Find", "functions calling this function",	findcalling},
 	{"Find this", "text string",			findstring},
 	{"Change this", "text string",			findstring},
 	{"Find this", "egrep pattern",			findregexp},
-	{"Find this", "file",				(FP) findfile},
-	{"Find", "files #including this file",		(FP) findinclude},
-	{"Find all", "function definitions",		(FP) findallfcns},	/* samuel only */
+	{"Find this", "file",				findfile},
+	{"Find", "files #including this file",		findinclude},
+	{"Find all", "function definitions",		findallfcns},	/* samuel only */
 };
 
 /* initialize display parameters */
@@ -114,20 +111,17 @@ void
 dispinit(void)
 {
 	/* calculate the maximum displayed reference lines */
-	lastdispline = FLDLINE - 2;
+	lastdispline = FLDLINE - 3;
 	mdisprefs = lastdispline - REFLINE + 1;
+
+
 	if (mdisprefs <= 0) {
 		(void) fprintf(stderr, "%s: screen too small\n", argv0);
 		myexit(1);
 	}
 
-	if (mouse == NO && mdisprefs > 9 && select_large == NO) {
-		mdisprefs = 9;
-	}
-	else if (mouse == NO && mdisprefs > 45 && select_large == YES) {
-		/* Limit is 45 select lines */
-		mdisprefs = 45;
-	}
+	if (mouse == NO && mdisprefs > strlen(dispchars))
+		mdisprefs = strlen(dispchars);
 
 	/* allocate the displayed line array */
 	displine = mymalloc(mdisprefs * sizeof(int));
@@ -183,14 +177,9 @@ display(void)
 			printw("%-*s ", subsystemlen, "Subsystem");
 			printw("%-*s ", booklen, "Book");
 		}
-		if (dispcomponents > 0) {
-			if (select_large == YES) {
-				printw(" %-*s ", filelen, "File");
-			}
-			else {
-				printw("%-*s ", filelen, "File");
-			}
-		}
+		if (dispcomponents > 0)
+			printw("%-*s ", filelen, "File");
+
 		if (field == SYMBOL || field == CALLEDBY || field == CALLING) {
 			printw("%-*s ", fcnlen, "Function");
 		}
@@ -204,12 +193,9 @@ display(void)
 			seekline(1);
 		}
 		/* calculate the source text column */
-		if (select_large == YES) {
-			width = COLS - numlen - 4;
-		}
-		else {
-			width = COLS - numlen - 3;
-		}
+
+		width = COLS - numlen - 3;
+
 		if (ogs == YES) {
 			width -= subsystemlen + booklen + 2;
 		}
@@ -238,27 +224,9 @@ display(void)
 			if (mouse == YES) {
 				addch(' ');
 			}
-			else {
-				/* print numbers and then letters for
-				   selections */
-				if (disprefs < 9) {
-					if (select_large == YES) {
-						printw(" %d", disprefs + 1);
-					}
-					else {
-						printw("%d", disprefs + 1);
-					}
-				}
-				else if (select_large == YES) {
-					if (disprefs < 19) {
-						printw("0%d", disprefs - 9);
-					}
-					else {
-						printw("0%c",
-							disprefs - 19 + 'A');
-					}
-				}
-			}
+			else
+				printw("%c", dispchars[disprefs]);
+
 			/* display any change mark */
 			if (changing == YES && 
 			    change[topline + disprefs - 1] == YES) {
@@ -391,6 +359,7 @@ display(void)
 		addstr(selprompt);
 	}
 	drawscrollbar(topline, nextline);	/* display the scrollbar */
+	refresh();
 }
 
 /* set the cursor position for the field */
@@ -435,10 +404,10 @@ search(void)
 	char	file[PATHLEN + 1];	/* file name */
 	char	function[PATLEN + 1];	/* function name */
 	char	linenum[NUMLEN + 1];	/* line number */
-	char	*egreperror = NULL;	/* egrep error message */
+	char	*findresult = NULL;	/* find function output */
 	BOOL	funcexist = YES;		/* find "function" error */
 	FINDINIT rc = NOERROR;		/* findinit return code */
-	RETSIGTYPE	(*savesig)();		/* old value of signal */
+	RETSIGTYPE	(*savesig)(int);		/* old value of signal */
 	FP	f;			/* searching function */
 	int	c, i;
 	
@@ -455,17 +424,18 @@ search(void)
 		savesig = signal(SIGINT, jumpback);
 		f = fields[field].findfcn;
 		if (f == findregexp || f == findstring) {
-			egreperror = (*f)(pattern);
+			findresult = (*f)(pattern);
 		}
 		else {
 			if ((nonglobalrefs = myfopen(temp2, "w")) == NULL) {
 				cannotopen(temp2);
 				return(NO);
 			}
-			if ((rc = findinit()) == NOERROR) {
+			if ((rc = findinit(pattern)) == NOERROR) {
 				(void) dbseek(0L); /* read the first block */
-				if (f == (FP) findcalledby) funcexist = (BOOL)(*f)();
-				else (*f)();
+				findresult = (*f)(pattern);
+				if (f == findcalledby) 
+					funcexist = (*findresult == 'y');
 				findcleanup();
 
 				/* append the non-global references */
@@ -489,9 +459,9 @@ search(void)
 	
 	/* see if it is empty */
 	if ((c = getc(refsfound)) == EOF) {
-		if (egreperror != NULL) {
+		if (findresult != NULL) {
 			(void) sprintf(lastmsg, "Egrep %s in this pattern: %s", 
-				egreperror, pattern);
+				findresult, pattern);
 		}
 		else if (rc == NOTSYMBOL) {
 			(void) sprintf(lastmsg, "This is not a C symbol: %s", 
@@ -554,35 +524,47 @@ search(void)
 /* display search progress with default custom format */
 
 void
-progress(const char *fmt, ...)
+progress(char *what, long current, long max)
 {
-	va_list	ap;
 	static	long	start;
 	long	now;
 	char	msg[MSGLEN + 1];
+	int	i;
 
 	/* save the start time */
 	if (searchcount == 0) {
 		start = time(NULL);
 	}
-	/* display the progress every 3 seconds */
-	else if ((now = time(NULL)) - start >= 3) {
-		if (fmt == NULL) {	/* No arguments, print default msg */
-			start = now;
-			(void) sprintf(msg, "%ld of %d files searched", 
-				searchcount, nsrcfiles);
-			if (linemode == NO) postmsg(msg);
-		} else {		/* Arguments, print custom message */
-			va_start(ap, fmt);
-			start = now;
-#ifdef HAVE_VSNPRINTF
-			(void) vsnprintf(msg, MSGLEN + 1, fmt, ap);
-#else
-			(void) vsprintf(msg, fmt, ap);
-#endif
-			if (linemode == NO) postmsg(msg);
-			va_end(ap);
+	if ((now = time(NULL)) - start >= 1)
+	{
+		if (linemode == NO)
+		{
+			move(MSGLINE, 0);
+			clrtoeol();
+			addstr(what);
+			sprintf(msg, "%ld", current);
+			move(MSGLINE, (COLS / 2) - (strlen(msg) / 2));
+			addstr(msg);
+			sprintf(msg, "%ld", max);
+			move(MSGLINE, COLS - strlen(msg));
+			addstr(msg);
+			refresh();
 		}
+		start = now;
+		if ((linemode == NO) && (incurses == YES))
+		{
+			move(MSGLINE, 0);
+			i = (float)COLS * (float)current / (float)max;
+
+			standout();
+			for (; i > 0; i--)
+				addch(inch());
+			standend();
+			refresh();
+		}
+		else
+			if (linemode == NO)
+				postmsg(msg);
 	}
 	++searchcount;
 }
@@ -649,6 +631,31 @@ postmsg2(char *msg)
 		addstr(msg);
 	}
 }
+
+/* display an error mesg - stdout or on second msg line */
+void
+posterr(char *msg, ...) 
+{
+    va_list ap;
+    char errbuf[MSGLEN];
+    
+    va_start(ap, msg);
+    if (linemode == YES || incurses == NO)
+    {
+        (void) vfprintf(stderr, msg, ap); 
+    }
+    else
+    {
+#if HAVE_VSNPRINTF
+        vsnprintf(errbuf, sizeof(errbuf), msg, ap);
+#else
+        vsprintf(errbuf, msg, ap);
+#endif
+        postmsg2(errbuf); 
+    }
+}
+
+
 /* position references found file at specified line */
 
 void
