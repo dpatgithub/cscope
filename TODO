@@ -1,8 +1,3 @@
-- Autoconf/Automake setup
-- Add --help option
-- In a screen with more than 25 lines extend the selectable options
-  to fill the gap
-
 - Apply added capability from osr5 codebase
 
 - Display the current case mode (^C) onscreen
@@ -16,9 +11,6 @@
     Inline editing on Input fields ( ??^B/^F )
     ^X^C to quit ( ^Q ??)
     Pagdwn/PageUp/+/- 
-
-- Switch(-R) to recursively build cscope Database from cwd down 
-(default filename pattern if not specified or cmdline filename ptn otherwise)
 
 Same capabilities as interactive in non interactive (one shot) mode
 

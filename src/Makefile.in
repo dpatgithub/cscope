@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -62,6 +62,7 @@ host_triplet = @host@
 CC = @CC@
 CURSES_INCLUDEDIR = @CURSES_INCLUDEDIR@
 CURSES_LIBS = @CURSES_LIBS@
+EXEEXT = @EXEEXT@
 LEX = @LEX@
 LEX_OUTPUT_ROOT = @LEX_OUTPUT_ROOT@
 MAKEINFO = @MAKEINFO@
@@ -73,7 +74,7 @@ bin_PROGRAMS = cscope
 @USING_LEX_TRUE@LEXER_SOURCE = scanner.l
 @USING_LEX_FALSE@LEXER_SOURCE = fscanner.l
 
-cscope_SOURCES = $(LEXER_SOURCE) egrep.y 	alloc.c basename.c command.c compath.c constants.h crossref.c dir.c 	display.c edit.c exec.c find.c global.h help.c history.c input.c 	invlib.c invlib.h library.h logdir.c lookup.c lookup.h main.c mouse.c 	mygetenv.c mypopen.c scanner.h version.h vp.h vpaccess.c vpfopen.c 	vpinit.c vpopen.c
+cscope_SOURCES = $(LEXER_SOURCE) egrep.y 	alloc.c basename.c build.c build.h command.c compath.c constants.h crossref.c dir.c 	display.c edit.c exec.c find.c global.h help.c history.c input.c 	invlib.c invlib.h library.h logdir.c lookup.c lookup.h main.c mouse.c 	mygetenv.c mypopen.c scanner.h version.h vp.h vpaccess.c vpfopen.c 	vpinit.c vpopen.c
 
 
 EXTRA_cscope_SOURCES = scanner.l fscanner.l
@@ -90,6 +91,7 @@ EXTRA_DIST = emacs.e gmacs.ml
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../config.h
 CONFIG_CLEAN_FILES = 
+bin_PROGRAMS =  cscope$(EXEEXT)
 PROGRAMS =  $(bin_PROGRAMS)
 
 
@@ -98,13 +100,13 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 @USING_LEX_FALSE@cscope_OBJECTS =  fscanner.o egrep.o alloc.o basename.o \
-@USING_LEX_FALSE@command.o compath.o crossref.o dir.o display.o edit.o \
-@USING_LEX_FALSE@exec.o find.o help.o history.o input.o invlib.o \
+@USING_LEX_FALSE@build.o command.o compath.o crossref.o dir.o display.o \
+@USING_LEX_FALSE@edit.o exec.o find.o help.o history.o input.o invlib.o \
 @USING_LEX_FALSE@logdir.o lookup.o main.o mouse.o mygetenv.o mypopen.o \
 @USING_LEX_FALSE@vpaccess.o vpfopen.o vpinit.o vpopen.o
 @USING_LEX_TRUE@cscope_OBJECTS =  scanner.o egrep.o alloc.o basename.o \
-@USING_LEX_TRUE@command.o compath.o crossref.o dir.o display.o edit.o \
-@USING_LEX_TRUE@exec.o find.o help.o history.o input.o invlib.o \
+@USING_LEX_TRUE@build.o command.o compath.o crossref.o dir.o display.o \
+@USING_LEX_TRUE@edit.o exec.o find.o help.o history.o input.o invlib.o \
 @USING_LEX_TRUE@logdir.o lookup.o main.o mouse.o mygetenv.o mypopen.o \
 @USING_LEX_TRUE@vpaccess.o vpfopen.o vpinit.o vpopen.o
 cscope_DEPENDENCIES = 
@@ -180,8 +182,8 @@ distclean-compile:
 
 maintainer-clean-compile:
 
-cscope: $(cscope_OBJECTS) $(cscope_DEPENDENCIES)
-	@rm -f cscope
+cscope$(EXEEXT): $(cscope_OBJECTS) $(cscope_DEPENDENCIES)
+	@rm -f cscope$(EXEEXT)
 	$(LINK) $(cscope_LDFLAGS) $(cscope_OBJECTS) $(cscope_LDADD) $(LIBS)
 .l.c:
 	$(SHELL) $(YLWRAP) "$(LEX)" $< $(LEX_OUTPUT_ROOT).c $@ -- $(AM_LFLAGS) $(LFLAGS)
@@ -239,20 +241,25 @@ distdir: $(DISTFILES)
 	done
 	$(MAKE) $(AM_MAKEFLAGS) top_distdir="$(top_distdir)" distdir="$(distdir)" dist-hook
 alloc.o: alloc.c library.h global.h ../config.h constants.h invlib.h
-basename.o: basename.c
-command.o: command.c global.h ../config.h constants.h invlib.h library.h
-compath.o: compath.c
+basename.o: basename.c global.h ../config.h constants.h invlib.h \
+	library.h
+build.o: build.c build.h global.h ../config.h constants.h invlib.h \
+	library.h scanner.h version.h vp.h
+command.o: command.c global.h ../config.h constants.h invlib.h library.h \
+	build.h
+compath.o: compath.c global.h ../config.h constants.h invlib.h library.h
 crossref.o: crossref.c global.h ../config.h constants.h invlib.h \
-	library.h scanner.h
+	library.h build.h scanner.h
 dir.o: dir.c global.h ../config.h constants.h invlib.h library.h vp.h
 display.o: display.c global.h ../config.h constants.h invlib.h library.h \
-	version.h
+	build.h version.h
 edit.o: edit.c global.h ../config.h constants.h invlib.h library.h
-egrep.o: egrep.c
+egrep.o: egrep.c global.h ../config.h constants.h invlib.h library.h
 exec.o: exec.c global.h ../config.h constants.h invlib.h library.h
 find.o: find.c global.h ../config.h constants.h invlib.h library.h \
-	scanner.h
-fscanner.o: fscanner.c ../config.h
+	build.h scanner.h
+fscanner.o: fscanner.c global.h ../config.h constants.h invlib.h \
+	library.h scanner.h lookup.h
 help.o: help.c global.h ../config.h constants.h invlib.h library.h
 history.o: history.c global.h ../config.h constants.h invlib.h library.h
 input.o: input.c global.h ../config.h constants.h invlib.h library.h
@@ -260,15 +267,15 @@ invlib.o: invlib.c invlib.h global.h ../config.h constants.h library.h
 logdir.o: logdir.c global.h ../config.h constants.h invlib.h library.h
 lookup.o: lookup.c global.h ../config.h constants.h invlib.h library.h \
 	lookup.h
-main.o: main.c global.h ../config.h constants.h invlib.h library.h vp.h \
-	version.h scanner.h
+main.o: main.c global.h ../config.h constants.h invlib.h library.h \
+	build.h vp.h version.h scanner.h
 mouse.o: mouse.c global.h ../config.h constants.h invlib.h library.h
-mygetenv.o: mygetenv.c
+mygetenv.o: mygetenv.c library.h
 mypopen.o: mypopen.c global.h ../config.h constants.h invlib.h library.h
-vpaccess.o: vpaccess.c vp.h
-vpfopen.o: vpfopen.c vp.h global.h ../config.h constants.h invlib.h \
+vpaccess.o: vpaccess.c vp.h ../config.h
+vpfopen.o: vpfopen.c vp.h ../config.h global.h constants.h invlib.h \
 	library.h
-vpinit.o: vpinit.c vp.h library.h global.h ../config.h constants.h \
+vpinit.o: vpinit.c vp.h ../config.h library.h global.h constants.h \
 	invlib.h
 vpopen.o: vpopen.c global.h ../config.h constants.h invlib.h library.h \
 	vp.h

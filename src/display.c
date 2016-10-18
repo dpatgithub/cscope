@@ -36,6 +36,8 @@
  */
 
 #include "global.h"
+#include "build.h"
+
 #ifdef CCS
 #include "sgs.h"	/* ESG_PKG and ESG_REL */
 #else
@@ -52,7 +54,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
-static char const rcsid[] = "$Id: display.c,v 1.15 2001/06/01 12:43:24 broeker Exp $";
+static char const rcsid[] = "$Id: display.c,v 1.20 2002/03/13 18:54:40 broeker Exp $";
 
 int	booklen;		/* OGS book name display field length */
 int	*displine;		/* screen line of displayed reference */
@@ -75,7 +77,7 @@ const char	dispchars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR
 
 static	int	fldline;		/* input field line */
 static	jmp_buf	env;			/* setjmp/longjmp buffer */
-int		lastdispline;		/* last displayed reference line */
+static	int	lastdispline;		/* last displayed reference line */
 static	char	lastmsg[MSGLEN + 1];	/* last message displayed */
 static	char	helpstring[] = "Press the ? key for help";
 static	char	selprompt[] = 
@@ -104,6 +106,9 @@ static	struct	{		/* text of input fields */
 	{"Find", "files #including this file",		findinclude},
 	{"Find all", "function definitions",		findallfcns},	/* samuel only */
 };
+
+/* Internal prototypes: */
+static	RETSIGTYPE	jumpback(int sig);
 
 /* initialize display parameters */
 
@@ -389,7 +394,7 @@ atchange(void)
 /* search for the symbol or text pattern */
 
 /*ARGSUSED*/
-RETSIGTYPE
+static RETSIGTYPE
 jumpback(int sig)
 {
 	(void) sig;		/* 'use' sig, to avoid warning from compiler */
@@ -439,7 +444,11 @@ search(void)
 				findcleanup();
 
 				/* append the non-global references */
-				(void) freopen(temp2, "rb", nonglobalrefs);
+				(void) fclose(nonglobalrefs);
+				if ( (nonglobalrefs = myfopen(temp2, "rb")) == NULL) {
+				  cannotopen(temp2);
+				  return(NO);
+				}
 				while ((c = getc(nonglobalrefs)) != EOF) {
 					(void) putc(c, refsfound);
 				}
@@ -453,9 +462,14 @@ search(void)
 	(void) lseek(symrefs, (long) 0, 0);
 	
 	/* reopen the references found file for reading */
-	(void) freopen(temp1, "rb", refsfound);
+	(void) fclose(refsfound);
+	if ( (refsfound = myfopen(temp1, "rb")) == NULL) {
+		cannotopen(temp1);
+		return(NO);
+	}
 	nextline = 1;
 	totallines = 0;
+	disprefs = 0;
 	
 	/* see if it is empty */
 	if ((c = getc(refsfound)) == EOF) {
@@ -468,7 +482,7 @@ search(void)
 				pattern);
 		}
 		else if (rc == REGCMPERROR) {
-			(void) sprintf(lastmsg, "Error in this regcmp(3X) regular expression: %s", 
+			(void) sprintf(lastmsg, "Error in this regcomp(3) regular expression: %s", 
 				pattern);
 			
 		}
@@ -739,10 +753,12 @@ writerefsfound(void)
 			cannotopen(temp1);
 			return(NO);
 		}
-	}
-	else if (freopen(temp1, "wb", refsfound) == NULL) {
-		postmsg("Cannot reopen temporary file");
-		return(NO);
+	} else {
+		(void) fclose(refsfound);
+		if ( (refsfound = myfopen(temp1, "wb")) == NULL) {
+			postmsg("Cannot reopen temporary file");
+			return(NO);
+		}
 	}
 	return(YES);
 }

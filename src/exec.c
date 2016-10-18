@@ -49,11 +49,11 @@
 #include <curses.h>
 #endif
 
-static char const rcsid[] = "$Id: exec.c,v 1.5 2001/03/29 15:03:55 broeker Exp $";
+static char const rcsid[] = "$Id: exec.c,v 1.8 2002/07/28 15:40:07 broeker Exp $";
 
-static	RETSIGTYPE	(*oldsigquit)();	/* old value of quit signal */
-static	RETSIGTYPE	(*oldsighup)();		/* old value of hangup signal */
-static	RETSIGTYPE	(*oldsigstp)();
+static	RETSIGTYPE	(*oldsigquit)(int); /* old value of quit signal */
+static	RETSIGTYPE	(*oldsighup)(int); /* old value of hangup signal */
+static	RETSIGTYPE	(*oldsigstp)(int); /* old value of SIGTSTP */
 
 #ifndef __MSDOS__ /* none of these is needed, there */
 static	int	join(pid_t p);
@@ -73,7 +73,6 @@ execute(char *a, ...)	/* note: "exec" is already defined on u370 */
 	int	exitcode = -1;	/* initialize, to avoid warning */
 	char	*argv[BUFSIZ];
 	pid_t	p;
-	pid_t	myfork();
 
 	/* fork and exec the program or shell script */
 	endwin();	/* restore the terminal modes */
@@ -128,7 +127,7 @@ myexecvp(char *a, char **args)
 	(void) sprintf(msg, "\nCannot exec %s", a);
 	perror(msg);		/* display the reason */
 	askforreturn();		/* wait until the user sees the message */
-	exit(1);		/* exit the child */
+	myexit(1);		/* exit the child */
 	/* NOTREACHED */
 }
 

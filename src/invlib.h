@@ -30,22 +30,29 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: invlib.h,v 1.3 2001/06/01 12:43:24 broeker Exp $ */
+/* $Id: invlib.h,v 1.6 2001/07/09 14:00:25 broeker Exp $ */
 
 
 #ifndef CSCOPE_INVLIB_H
 #define CSCOPE_INVLIB_H
 
+#include <stdio.h>		/* need definition of FILE* */
+#include <limits.h>
+
 /* inverted index definitions */
 
 /* postings temporary file long number coding into characters */
 /* FIXME HBB: where would these definitions come from ? */
-#if u3b || u3b2 || u3b5 || u3b15 || uts
+#if CHAR_MAX==255
 # define	BASE		223	/* 255 - ' ' */
 # define	PRECISION	4	/* maximum digits after converting a long */
-#else	/* assume sign-extension of a char when converted to an int */
+#else
+# if CHAR_MAX==127	/* assume sign-extension of a char when converted to an int */
 #  define	BASE		95	/* 127 - ' ' */
 #  define	PRECISION	5	/* maximum digits after converting a long */
+# else
+#  error Need a platform with 8 bits in a char value
+# endif
 #endif
 
 /* inverted index access parameters */
@@ -96,7 +103,6 @@ typedef	struct {
 
 extern	long	*srcoffset;	/* source file name database offsets */
 extern	int	nsrcoffset;	/* number of file name database offsets */
-extern	INVCONTROL invcontrol;	/* inverted file control structure */
 
 
 void	boolclear(void);
@@ -105,7 +111,7 @@ void	invclose(INVCONTROL *invcntl);
 void	invdump(INVCONTROL *invcntl, char *term);
 long	invfind(INVCONTROL *invcntl, char *searchterm);
 int	invforward(INVCONTROL *invcntl);
-int	invopen(INVCONTROL *invcntl, char *invname, char *invpost, int stat);
+int	invopen(INVCONTROL *invcntl, char *invname, char *invpost, int status);
 long	invmake(char *invname, char *invpost, FILE *infile);
 long	invterm(INVCONTROL *invcntl, char *term);
 

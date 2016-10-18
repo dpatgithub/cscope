@@ -31,7 +31,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: egrep.y,v 1.5 2001/03/27 15:14:02 broeker Exp $ */
+/* $Id: egrep.y,v 1.7 2001/07/09 13:58:15 broeker Exp $ */
 
 /*
  * egrep -- fine lines containing a regular expression
@@ -45,26 +45,11 @@
 %left STAR PLUS QUEST
 
 %{
-  /*#include "global.h"*/
+#include "global.h"
 #include <ctype.h>
 #include <stdio.h>
-#ifdef BSD	/* build command requires #ifdef instead of #if */
-#undef	tolower		/* BSD tolower doesn't test the character */
-#define	tolower(c)	(islower(c) ? (c) : (c) - 'A' + 'a')	
-char	*memset();
-#else
-#ifdef V9
-char	*memset();
-#else /*V9*/
-#include <memory.h>	/* memset */
-#endif /*V9*/
-#endif
-#include <setjmp.h>	/* jmp_buf */
 
-/* HBB 20000509: only this line from 'global.h' is really
- * needed. #include'ing all of it would pull in the unwanted
- * non-static prototype for 'yylex()'.  */
-FILE	*myfopen(char *path, char *mode);
+#include <setjmp.h>	/* jmp_buf */
 
 #define nextch()	(*input++)
 
@@ -96,6 +81,10 @@ static	long lnum;
 static	int iflag;
 static	jmp_buf	env;	/* setjmp/longjmp buffer */
 static	char *message;	/* error message */
+
+/* Internal prototypes: */
+static	void cfoll(int v);
+static	void cgotofn(void);
 static	int cstate(int v);
 static	int member(int symb, int set, int torf);
 static	int notin(int n);
@@ -109,6 +98,7 @@ static	int cclenter(int x);
 static	int enter(int x);
 
 static int yylex(void);
+static int yyerror(char *);
 %}
 
 %%
@@ -156,7 +146,7 @@ r:	r OR r
 	;
 
 %%
-int
+static int
 yyerror(char *s)
 {
 	message = s;
@@ -166,9 +156,6 @@ yyerror(char *s)
 static int
 yylex(void)
 {
-	/* HBB 20010327: shouldn't be needed: we're inside the Yacc
-	 * source itself */
-	/* extern int yylval; */ 
 	int cclcnt, x;
 	char c, d;
 	switch(c = nextch()) {
@@ -218,7 +205,7 @@ yylex(void)
 	}
 }
 
-void
+static void
 synerror(void)
 {
 	yyerror("Syntax error");
@@ -615,6 +602,9 @@ egrep(char *file, FILE *output, char *format)
 done:	(void) fclose(fptr);
 	return(0);
 }
+
+/* FIXME HBB: should export this to a separate file and use
+ * AC_REPLACE_FUNCS() */
 #if BSD
 /*LINTLIBRARY*/
 /*

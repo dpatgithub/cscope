@@ -30,24 +30,19 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: constants.h,v 1.7 2001/06/01 12:43:24 broeker Exp $ */
+/* $Id: constants.h,v 1.12 2002/07/11 14:23:45 broeker Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
  *	preprocessor macro and constant definitions
  */
 
+#ifndef CSCOPE_CONSTANTS_H
+#define CSCOPE_CONSTANTS_H
+
 #include "config.h"		/* Get OS defines */
 
 #define ctrl(x)	(x & 037)	/* control character macro */
-
-/* database output macros that update its offset */
-#define	dbputc(c)	(++dboffset, (void) putc(c, newrefs))
-#if Linux || BSD && !sun
-#define	dbfputs(s)	(dboffset += strlen(s), fputs(s, newrefs))
-#else
-#define	dbfputs(s)	(dboffset += fputs(s, newrefs))
-#endif
 
 /* fast string equality tests (avoids most strcmp() calls) */
 #define	strequal(s1, s2)	(*(s1) == *(s2) && strcmp(s1, s2) == 0)
@@ -77,9 +72,11 @@
 #define	NAMEFILE "cscope.files"	/* default list-of-files file */
 #define	INVNAME	"cscope.in.out"	/* inverted index to the database */
 #define	INVPOST	"cscope.po.out"	/* inverted index postings */
+#define	INVNAME2 "cscope.out.in"/* follows correct naming convention */
+#define	INVPOST2 "cscope.out.po"/* follows correct naming convention */
+
 #define	STMTMAX	10000		/* maximum source statement length */
-#define	READ	4		/* access(2) parameter */
-#define	WRITE	2		/* access(2) parameter */
+
 /* screen lines */
 #define	FLDLINE	(LINES - FIELDS - 1)	/* first input field line */
 #define	MSGLINE	0			/* message line */
@@ -131,3 +128,5 @@
 
 #endif	/* if !TERMINFO */
 #endif	/* ifndef __FreeBSD__ */
+
+#endif /* CSCOPE_CONSTANTS_H */

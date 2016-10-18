@@ -37,11 +37,13 @@
  */
 
 #include "global.h"
+
+#include "build.h"
 #include "scanner.h"
 
 #include <stdlib.h>
 
-static char const rcsid[] = "$Id: crossref.c,v 1.8 2001/06/01 12:43:24 broeker Exp $";
+static char const rcsid[] = "$Id: crossref.c,v 1.11 2001/07/09 14:00:25 broeker Exp $";
 
 
 /* convert long to a string */
@@ -61,7 +63,6 @@ static char const rcsid[] = "$Id: crossref.c,v 1.8 2001/06/01 12:43:24 broeker E
 
 long	dboffset;		/* new database offset */
 BOOL	errorsfound;		/* prompt before clearing messages */
-long	fileindex;		/* source file name index */
 long	lineoffset;		/* source line database offset */
 long	npostings;		/* number of postings */
 int	nsrcoffset;             /* number of file name database offsets */
@@ -232,7 +233,7 @@ putcrossref(void)
 	/* output the source line */
 	lineoffset = dboffset;
 	dboffset += fprintf(newrefs, "%d ", lineno);
-#if BSD && !sun && !__FreeBSD__
+#ifdef PRINTF_RETVAL_BROKEN
 	dboffset = ftell(newrefs); /* fprintf doesn't return chars written */
 #endif
 
