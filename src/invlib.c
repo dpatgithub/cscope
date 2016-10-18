@@ -63,7 +63,7 @@ char	*strchr();
 #define	FMTVERSION	1	/* inverted index format version */
 #define	ZIPFSIZE	200	/* zipf curve size */
 
-static char const rcsid[] = "$Id: invlib.c,v 1.8 2000/05/18 15:21:21 broeker Exp $";
+static char const rcsid[] = "$Id: invlib.c,v 1.11 2001/06/01 12:31:00 broeker Exp $";
 
 int	invbreak;
 
@@ -123,7 +123,7 @@ invmake(char *invname, char *invpost, FILE *infile)
 	unsigned maxtermlen = 0;
 #endif
 	/* output file */
-	if ((outfile = vpfopen(invname, "w+")) == NULL) {
+	if ((outfile = vpfopen(invname, "w+b")) == NULL) {
 		invcannotopen(invname);
 		return(0);
 	}
@@ -131,7 +131,7 @@ invmake(char *invname, char *invpost, FILE *infile)
 	(void) fseek(outfile, (long) BUFSIZ, 0);
 
 	/* posting file  */
-	if ((fpost = vpfopen(invpost, "w")) == NULL) {
+	if ((fpost = vpfopen(invpost, "wb")) == NULL) {
 		invcannotopen(invpost);
 		return(0);
 	}
@@ -482,7 +482,9 @@ invnewterm(void)
 			nextsupfing += strlen(thisterm) + 1;
 		}
 	}
-	lastinblk -= (numwilluse - 8);
+	/* HBB 20010501: Fixed bug by replacing magic number '8' by
+	 * what it actually represents. */
+	lastinblk -= (numwilluse - 2 * sizeof(long));
 	iteminfo.e.offset = lastinblk;
 	iteminfo.e.size = len;
 	iteminfo.e.space = 0;
@@ -507,10 +509,24 @@ invopen(INVCONTROL *invcntl, char *invname, char *invpost, int stat)
 {
 	int	read_index;
 
-	if ((invcntl->invfile = vpfopen(invname, ((stat == 0) ? "r" : "r+"))) == NULL) {
+	if ((invcntl->invfile = vpfopen(invname, ((stat == 0) ? "rb" : "r+b"))) == NULL) {
+		/* If db created without '-f', but now invoked with '-f cscope.out',
+		 * we need to check for 'cscope.in.out', rather than 'cscope.out.in': 
+		 * I.e, hack around our own violation of the inverse db naming convention */
+		if (!strcmp(invname, "cscope.out.in")) {
+			if ((invcntl->invfile = vpfopen(INVNAME, ((stat == 0) ? "r" : "r+")))) 
+				goto openedinvname;
+		/* more silliness: if you create the db with '-f cscope', then try to open 
+		 * it without '-f cscope', you'll fail unless we check for 'cscope.out.in'
+		 * here. */
+		} else if (!strcmp(invname, INVNAME)) {
+			if ((invcntl->invfile = vpfopen("cscope.out.in", ((stat == 0) ? "r" : "r+")))) 
+				goto openedinvname;
+		}	
 		invcannotopen(invname);
 		return(-1);
 	}
+openedinvname:
 	if (fread(&invcntl->param, sizeof(invcntl->param), 1, invcntl->invfile) == 0) {
 		(void) fprintf(stderr, "%s: empty inverted file\n", argv0);
 		goto closeinv;
@@ -525,10 +541,19 @@ invopen(INVCONTROL *invcntl, char *invname, char *invpost, int stat)
 		(void) fprintf(stderr, "%s: inverted file is locked\n", argv0);
 		goto closeinv;
 	}
-	if ((invcntl->postfile = vpfopen(invpost, ((stat == 0) ? "r" : "r+"))) == NULL) {
+	if ((invcntl->postfile = vpfopen(invpost, ((stat == 0) ? "rb" : "r+b"))) == NULL) {
+		/* exact same naming convention hacks as above for invname */
+		if (!strcmp(invpost, "cscope.out.po")) {
+			if ((invcntl->postfile = vpfopen(INVPOST, ((stat == 0) ? "r" : "r+")))) 
+				goto openedinvpost;
+		} else if (!strcmp(invpost, INVPOST)) {
+			if ((invcntl->postfile = vpfopen("cscope.out.po",((stat == 0)?"r":"r+")))) 
+				goto openedinvpost;
+		}
 		invcannotopen(invpost);
 		goto closeinv;
 	}
+openedinvpost:
 	/* allocate core for a logical block  */
 	if ((invcntl->logblk = malloc((unsigned) invcntl->param.sizeblk)) == NULL) {
 		invcannotalloc((unsigned) invcntl->param.sizeblk);

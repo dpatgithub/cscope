@@ -45,7 +45,7 @@
 #include <fcntl.h>	/* O_RDONLY */
 #include <ctype.h>
 
-static char const rcsid[] = "$Id: command.c,v 1.10 2000/05/31 16:54:10 petr Exp $";
+static char const rcsid[] = "$Id: command.c,v 1.12 2001/06/01 12:43:24 broeker Exp $";
 
 
 int	selecting;
@@ -552,7 +552,7 @@ readrefs(char *filename)
 	FILE	*file;
 	int	c;
 
-	if ((file = myfopen(filename, "r")) == NULL) {
+	if ((file = myfopen(filename, "rb")) == NULL) {
 		cannotopen(filename);
 		return(NO);
 	}
@@ -567,7 +567,7 @@ readrefs(char *filename)
 			(void) putc(c, refsfound);
 		}
 		(void) fclose(file);
-		(void) freopen(temp1, "r", refsfound);
+		(void) freopen(temp1, "rb", refsfound);
 		countrefs();
 	}
 	return(YES);
@@ -855,7 +855,7 @@ countrefs(void)
 	fcnlen = 8;		/* strlen("Function") */
 	numlen = 0;
 	while ((i = fscanf(refsfound, "%250s%250s%6s %5000[^\n]", file,
-	    function, linenum, yytext)) != EOF) {
+	    function, linenum, tempstring)) != EOF) {
 		if (i != 4 ||
 		    !isgraph((unsigned char)*file) ||
 		    !isgraph((unsigned char)*function) ||

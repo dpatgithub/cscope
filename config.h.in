@@ -53,6 +53,10 @@
  *   2 = version 4.0/4.1 */
 #undef NCURSES_970530
 
+/* Define this if the lex used is the 'real' AT&T variety. Don't define if
+ * it's flex or some other */
+#undef USING_LEX
+
 /* Define if you have the getcwd function.  */
 #undef HAVE_GETCWD
 
@@ -61,6 +65,9 @@
 
 /* Define if you have the regcomp function.  */
 #undef HAVE_REGCOMP
+
+/* Define if you have the snprintf function.  */
+#undef HAVE_SNPRINTF
 
 /* Define if you have the strerror function.  */
 #undef HAVE_STRERROR
@@ -83,6 +90,9 @@
 /* Define if you have the <sys/ndir.h> header file.  */
 #undef HAVE_SYS_NDIR_H
 
+/* Define if you have the <sys/termios.h> header file.  */
+#undef HAVE_SYS_TERMIOS_H
+
 /* Define if you have the <sys/window.h> header file.  */
 #undef HAVE_SYS_WINDOW_H
 
@@ -95,6 +105,7 @@
 /* Version number of package */
 #undef VERSION
 
-/* Define if yytext' as a char'. */
+/* Define if lex declares yytext as a char * by default,
+             not a char. */
 #undef YYTEXT_POINTER
 

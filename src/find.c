@@ -36,6 +36,7 @@
  */
 
 #include "global.h"
+#include "scanner.h"		/* for token definitions */
 #if defined(USE_NCURSES) && !defined(RENAMED_NCURSES)
 #include <ncurses.h>
 #else
@@ -43,7 +44,7 @@
 #endif
 #include <regex.h>
 
-static char const rcsid[] = "$Id: find.c,v 1.9 2000/05/31 16:54:10 petr Exp $";
+static char const rcsid[] = "$Id: find.c,v 1.12 2001/06/01 12:43:24 broeker Exp $";
 
 /* most of these functions have been optimized so their innermost loops have
  * only one test for the desired character by putting the char and 
@@ -497,10 +498,7 @@ findregexp(char *egreppat)
 			char *file = filepath(srcfiles[i]);
 			progress("Search", searchcount, nsrcfiles);
 			if (egrep(file, refsfound, "%s <unknown> %ld ") < 0) {
-				move(1, 0);
-				clrtoeol();
-				printw("Cannot open file %s", file);
-				refresh();
+				posterr ("Cannot open file %s", file);
 			}
 		}
 	}
@@ -588,7 +586,7 @@ findinit(char *pattern)
 	BOOL	isregexp = NO;
 	int	i;
 	char	*s;
-	unsigned c;
+	unsigned char c;	/* HBB 20010427: changed uint to uchar */
 
 	/* HBB: be nice: free regexp before allocating a new one */
 	if(isregexp_valid == YES)
@@ -677,8 +675,8 @@ findinit(char *pattern)
 		/* compress the string pattern for matching */
 		s = cpattern;
 		for (i = 0; (c = pattern[i]) != '\0'; ++i) {
-			if (dicode1[c] && dicode2[(unsigned) pattern[i + 1]]) {
-				c = (0200 - 2) + dicode1[c] + dicode2[(unsigned) pattern[i + 1]];
+			if (IS_A_DICODE(c, pattern[i + 1])) {
+				c = DICODE_COMPRESS(c, pattern[i + 1]);
 				++i;
 			}
 			*s++ = c;

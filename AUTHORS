@@ -15,3 +15,16 @@ Carl Mascott - FreeBSD support
 Rich Salz - Allow -i accept stdio as input as "-"
 Stephane Fritsch - BeOS support
 Andy Newman <atrn> - FreeBSD support patch
+Sascha Blank - FreeBSD support
+Bruce Frost - Stability
+Chuck Marco and Wilfredo Sanchez - Darwin support
+Jason Duell - CSCOPE_EDITOR and CSCOPE_LINEFLAG*, invname database
+Tom Hull - Similar work to CSCOPE_EDITOR and friends
+Donald Slutz - Various fixes
+OGAWA Hirofumi - line mode fixes
+Garret Hade - Various ocs fixes
+Nick Dixon - Improvement in key handling
+Triet H. Lai <thlai@mail.usyd.edu.au> - GNU Emacs fixes for xcscope.el
+Steven Elliott <selliott4@austin.rr.com> - Fuzzy pattern matching for xcscope.el
+Ragho Mahalingam <ragho@mahalingam.com> - webcscope
+Dmitry Obukhov - Hilight code in webcscope

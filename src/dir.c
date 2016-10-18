@@ -37,14 +37,14 @@
  */
 
 #include <stdlib.h>
+#include <sys/types.h>	/* needed by stat.h and dirent.h */
 #include <dirent.h>
 #include <stdlib.h>
-#include <sys/types.h>	/* needed by stat.h */
 #include <sys/stat.h>	/* stat */
 #include "global.h"
 #include "vp.h"		/* vpdirs and vpndirs */
 
-static char const rcsid[] = "$Id: dir.c,v 1.8 2000/10/27 12:36:55 broeker Exp $";
+static char const rcsid[] = "$Id: dir.c,v 1.10 2001/03/27 14:09:19 broeker Exp $";
 
 #define	DIRSEPS	" ,:"	/* directory list separators */
 #define	DIRINC	10	/* directory list size increment */
@@ -387,9 +387,14 @@ scan_dir(const char *adir, BOOL recurse_dir) {
                                             && (buf.st_mode & S_IFDIR) ) {
 					  scan_dir(path, recurse_dir);
 					}
-					else if (entry->d_ino != 0
-					        && issrcfile(path)
-					        && infilelist(path) == NO) {
+					else if (
+#ifdef __DJGPP__ /* FIXME: should test for feature, not platform */
+						 1 /* DJGPP doesn't have this field in dirent */
+#else
+						 entry->d_ino != 0
+#endif
+						 && issrcfile(path)
+						 && infilelist(path) == NO) {
 					  addsrcfile(file, path);
 					}
 				}

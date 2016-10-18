@@ -3,7 +3,7 @@
 
 
 #define PACKAGE cscope
-#define VERSION 15.1
+#define VERSION 15.3
 
 /* OS Definitions */
 #undef Linux
@@ -35,5 +35,9 @@
  *   1 = version 1.9.9g
  *   2 = version 4.0/4.1 */
 #undef NCURSES_970530
+
+/* Define this if the lex used is the 'real' AT&T variety. Don't define if
+ * it's flex or some other */
+#undef USING_LEX
 
 

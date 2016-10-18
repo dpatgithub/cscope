@@ -37,7 +37,9 @@
  */
 
 #include "global.h"
+#include "vp.h"
 #include "version.h"	/* FILEVERSION and FIXVERSION */
+#include "scanner.h" 
 #include <stdlib.h>	/* atoi */
 #if defined(USE_NCURSES) && !defined(RENAMED_NCURSES)
 #include <ncurses.h>
@@ -51,12 +53,13 @@
 /* defaults for unset environment variables */
 #define	EDITOR	"vi"
 #define	SHELL	"sh"
+#define LINEFLAG "+%s"	/* default: used by vi and emacs */
 #define TMPDIR	"/tmp"
 #ifndef DFLT_INCDIR
 #define DFLT_INCDIR "/usr/include"
 #endif
 
-static char const rcsid[] = "$Id: main.c,v 1.15 2000/10/27 11:35:01 broeker Exp $";
+static char const rcsid[] = "$Id: main.c,v 1.20 2001/06/01 12:43:24 broeker Exp $";
 
 /* note: these digraph character frequencies were calculated from possible 
    printable digraphs in the cross-reference for the C compiler */
@@ -66,7 +69,8 @@ char	dichar2[] = " tnerpla";		/* 8 most frequent second chars
 char	dicode1[256];		/* digraph first character code */
 char	dicode2[256];		/* digraph second character code */
 
-char	*editor, *home, *shell;	/* environment variables */
+char	*editor, *home, *shell, *lineflag;	/* environment variables */
+BOOL	lineflagafterfile;
 char	*argv0;			/* command name */
 BOOL	compress = YES;		/* compress the characters in the crossref */
 BOOL	dbtruncated;		/* database symbols are truncated to 8 chars */
@@ -100,6 +104,8 @@ char	temp1[PATHLEN + 1];	/* temporary file name */
 char	temp2[PATHLEN + 1];	/* temporary file name */
 long	totalterms;		/* total inverted index terms */
 BOOL	trun_syms;		/* truncate symbols to 8 characters */
+char	tempstring[8192];	/* use this as a buffer, instead of 'yytext', 
+				 * which had better be left alone */
 
 static	BOOL	buildonly = NO;		/* only build the database */
 static	BOOL	fileschanged;		/* assume some files changed */
@@ -252,7 +258,7 @@ main(int argc, char **argv)
 					(void) strcpy(path, s);
 #if !BSD || sun	/* suns can access Amdahl databases */
 					/* System V has a 14 character limit */
-					s = basename(path);
+					s = mybasename(path);
 					if (strlen(s) > 11) {
 						s[11] = '\0';
 					}
@@ -306,9 +312,12 @@ nextarg:	;
 lastarg:
 	/* read the environment */
 	editor = mygetenv("EDITOR", EDITOR);
-	editor = mygetenv("VIEWER", editor);	/* use viewer if set */
+	editor = mygetenv("VIEWER", editor);		/* use viewer if set */
+	editor = mygetenv("CSCOPE_EDITOR", editor);	/* has last word */
 	home = getenv("HOME");
 	shell = mygetenv("SHELL", SHELL);
+	lineflag = mygetenv("CSCOPE_LINEFLAG", LINEFLAG);
+	lineflagafterfile = getenv("CSCOPE_LINEFLAG_AFTER_FILE")?1:0;
 	tmpdir = mygetenv("TMPDIR", TMPDIR);
 
 	/* XXX remove if/when clearerr() in dir.c does the right thing. */
@@ -387,7 +396,7 @@ lastarg:
 
 	/* if the cross-reference is to be considered up-to-date */
 	if (isuptodate == YES) {
-		if ((oldrefs = vpfopen(reffile, "r")) == NULL) {
+		if ((oldrefs = vpfopen(reffile, "rb")) == NULL) {
 			posterr("cscope: cannot open file %s\n", reffile);
 			myexit(1);
 		}
@@ -536,15 +545,15 @@ lastarg:
 	
 		/* create the file name(s) used for a new cross-referene */
 		(void) strcpy(path, reffile);
-		s = basename(path);
+		s = mybasename(path);
 		*s = '\0';
 		(void) strcat(path, "n");
 		++s;
-		(void) strcpy(s, basename(reffile));
+		(void) strcpy(s, mybasename(reffile));
 		newreffile = stralloc(path);
-		(void) strcpy(s, basename(invname));
+		(void) strcpy(s, mybasename(invname));
 		newinvname = stralloc(path);
-		(void) strcpy(s, basename(invpost));
+		(void) strcpy(s, mybasename(invpost));
 		newinvpost = stralloc(path);
 
 		/* build the cross-reference */
@@ -743,10 +752,10 @@ initcompress(void)
 	
 	if (compress == YES) {
 		for (i = 0; i < 16; ++i) {
-			dicode1[(unsigned) (dichar1[i])] = i * 8 + 1;
+			dicode1[(unsigned char) (dichar1[i])] = i * 8 + 1;
 		}
 		for (i = 0; i < 8; ++i) {
-			dicode2[(unsigned) (dichar2[i])] = i + 1;
+			dicode2[(unsigned char) (dichar2[i])] = i + 1;
 		}
 	}
 }
@@ -756,7 +765,7 @@ initcompress(void)
 void
 opendatabase(void)
 {
-	if ((symrefs = vpopen(reffile, O_RDONLY)) == -1) {
+	if ((symrefs = vpopen(reffile, O_BINARY | O_RDONLY)) == -1) {
 		cannotopen(reffile);
 		myexit(1);
 	}
@@ -826,7 +835,7 @@ build(void)
 
 	/* if there is an old cross-reference and its current directory matches */
 	/* or this is an unconditional build */
-	if ((oldrefs = vpfopen(reffile, "r")) != NULL && unconditional == NO &&
+	if ((oldrefs = vpfopen(reffile, "rb")) != NULL && unconditional == NO &&
 	    fscanf(oldrefs, "cscope %d %s", &fileversion, olddir) == 2 &&
 	    (strcmp(olddir, currentdir) == 0 || /* remain compatible */
 	     strcmp(olddir, newdir) == 0)) {
@@ -906,7 +915,7 @@ build(void)
 		/* the old cross-reference is up-to-date */
 		/* so get the list of included files */
 		while (i++ < oldnum && fscanf(oldrefs, "%s", oldname) == 1) {
-			addsrcfile(basename(oldname), oldname);
+			addsrcfile(mybasename(oldname), oldname);
 		}
 		(void) fclose(oldrefs);
 		return;
@@ -918,7 +927,7 @@ build(void)
 			goto force;
 		}
 		/* reopen the old cross-reference file for fast scanning */
-		if ((symrefs = vpopen(reffile, O_RDONLY)) == -1) {
+		if ((symrefs = vpopen(reffile, O_BINARY | O_RDONLY)) == -1) {
 			(void) fprintf(stderr, "cscope: cannot open file %s\n", reffile);
 			myexit(1);
 		}
@@ -933,11 +942,11 @@ build(void)
 		oldfile = NULL;
 	}
 	/* open the new cross-reference file */
-	if ((newrefs = myfopen(newreffile, "w")) == NULL) {
+	if ((newrefs = myfopen(newreffile, "wb")) == NULL) {
 		(void) fprintf(stderr, "cscope: cannot open file %s\n", reffile);
 		myexit(1);
 	}
-	if (invertedindex == YES && (postings = myfopen(temp1, "w")) == NULL) {
+	if (invertedindex == YES && (postings = myfopen(temp1, "wb")) == NULL) {
 		cannotwrite(temp1);
 		cannotindex();
 	}
@@ -1353,7 +1362,9 @@ void
 entercurses(void)
 {
 	incurses = YES;
+#ifndef __MSDOS__ /* HBB 20010313 */
 	(void) nonl();		/* don't translate an output \n to \n\r */
+#endif
 	(void) cbreak();	/* single character input */
 	(void) noecho();	/* don't echo input characters */
 	(void) clear();		/* clear the screen */
@@ -1428,6 +1439,11 @@ longusage(void)
 void
 myexit(int sig)
 {
+	/* HBB 20010313; close file before unlinking it. Unix may not care
+	 * about that, but DOS absolutely needs it */
+	if (refsfound != NULL)
+		fclose(refsfound);
+	
 	/* remove any temporary files */
 	if (temp1[0] != '\0') {
 		(void) unlink(temp1);

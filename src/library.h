@@ -30,9 +30,12 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: library.h,v 1.3 2000/05/18 14:14:57 broeker Exp $ */
+/* $Id: library.h,v 1.5 2001/06/01 12:43:24 broeker Exp $ */
 
 /* library function return value declarations */
+
+#ifndef CSCOPE_LIBRARY_H
+#define CSCOPE_LIBRARY_H
 
 #if BSD
 #define	strchr	index
@@ -44,7 +47,7 @@
 #endif
 
 /* private library */
-char	*basename(char *path);
+char	*mybasename(char *path);
 char	*compath(char *pathname);
 char	*egrepinit(char *egreppat);
 char	*logdir(char *name);
@@ -58,3 +61,5 @@ void	egrepcaseless(int i);
 
 /* Programmer's Workbench library (-lPW) */
 char	*regcmp(), *regex();
+
+#endif /* CSCOPE_LIBRARY_H */

@@ -30,14 +30,14 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: constants.h,v 1.3 2000/05/11 14:41:27 petr Exp $ */
+/* $Id: constants.h,v 1.7 2001/06/01 12:43:24 broeker Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
  *	preprocessor macro and constant definitions
  */
 
-#include <config.h>		/* Get OS defines */
+#include "config.h"		/* Get OS defines */
 
 #define ctrl(x)	(x & 037)	/* control character macro */
 
@@ -77,35 +77,9 @@
 #define	NAMEFILE "cscope.files"	/* default list-of-files file */
 #define	INVNAME	"cscope.in.out"	/* inverted index to the database */
 #define	INVPOST	"cscope.po.out"	/* inverted index postings */
-#define	STMTMAX	5000		/* maximum source statement length */
+#define	STMTMAX	10000		/* maximum source statement length */
 #define	READ	4		/* access(2) parameter */
 #define	WRITE	2		/* access(2) parameter */
-#undef	YYLMAX		
-#define YYLMAX	STMTMAX + PATLEN + 1	/* scanner line buffer size */
-
-/* cross-reference database mark characters (when new ones are added, 
- * update the cscope.out format description in cscope.1)
- */
-#define CLASSDEF	'c'
-#define	DEFINE		'#'
-#define	DEFINEEND	')'
-#define ENUMDEF		'e'
-#define FCNCALL		'`'
-#define FCNDEF		'$'
-#define FCNEND		'}'
-#define GLOBALDEF	'g'
-#define	INCLUDE		'~'
-#define MEMBERDEF	'm'
-#define NEWFILE		'@'
-#define STRUCTDEF	's'
-#define TYPEDEF		't'
-#define UNIONDEF	'u'
-
-/* other scanner token types */
-#define LEXEOF	0
-#define	IDENT	1
-#define	NEWLINE	2
-
 /* screen lines */
 #define	FLDLINE	(LINES - FIELDS - 1)	/* first input field line */
 #define	MSGLINE	0			/* message line */
@@ -130,6 +104,8 @@
 #define TERMINFO	1
 #endif
 
+
+#ifndef __FreeBSD__	/* Prevent search issues in cscope.out */
 #if !TERMINFO
 #ifndef KEY_BREAK
 #define	KEY_BREAK	0400	/* easier to define than to add #if around the use */
@@ -151,5 +127,7 @@
 #else
 #define	erasechar()	(_tty.sg_erase)			/* equivalent */
 #define	killchar()	(_tty.sg_kill)			/* equivalent */
-#endif
-#endif
+#endif	/* if UNIXPC */
+
+#endif	/* if !TERMINFO */
+#endif	/* ifndef __FreeBSD__ */

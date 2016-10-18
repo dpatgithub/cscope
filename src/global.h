@@ -30,7 +30,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: global.h,v 1.11 2000/05/19 04:46:32 hops1 Exp $ */
+/* $Id: global.h,v 1.15 2001/06/01 12:43:24 broeker Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
@@ -92,8 +92,18 @@ extern	char	dichar2[];	/* 8 most frequent second chars
 extern	char	dicode1[];	/* digraph first character code */
 extern	char	dicode2[];	/* digraph second character code */
 
+/* and some macros to help using dicodes: */
+/* Check if a given pair of chars is compressable as a dicode: */
+#define IS_A_DICODE(inchar1, inchar2)					   \
+  (dicode1[(unsigned char)(inchar1)] && dicode2[(unsigned char)(inchar2)])
+/* Combine the pair into a dicode */
+#define DICODE_COMPRESS(inchar1, inchar2)		\
+  ((0200 - 2) + dicode1[(unsigned char)(inchar1)]	\
+   + dicode2[(unsigned char)(inchar2)])
+
 /* main.c global data */
-extern	char	*editor, *home, *shell;	/* environment variables */
+extern	char	*editor, *home, *shell, *lineflag;	/* environment variables */
+extern 	BOOL	lineflagafterfile;
 extern	char	*argv0;		/* command name */
 extern	BOOL	compress;	/* compress the characters in the crossref */
 extern	BOOL	dbtruncated;	/* database symbols truncated to 8 chars */
@@ -124,7 +134,7 @@ extern	char	temp1[];	/* temporary file name */
 extern	char	temp2[];	/* temporary file name */
 extern	long	totalterms;	/* total inverted index terms */
 extern	BOOL	trun_syms;	/* truncate symbols to 8 characters */
-
+extern	char	tempstring[8192]; /* global dummy string buffer */
 
 /* command.c global data */
 extern	BOOL	caseless;	/* ignore letter case when searching */
@@ -193,16 +203,6 @@ extern	BOOL	mouse;		/* mouse interface */
 extern	BOOL	unixpcmouse;		/* UNIX PC mouse interface */
 #endif
 
-/* scanner.l global data */
-extern	int	first;		/* buffer index for first char of symbol */
-extern	int	last;		/* buffer index for last char of symbol */
-extern	int	lineno;		/* symbol line number */
-extern	FILE	*yyin;		/* input file descriptor */
-extern	FILE	*yyout;		/* output file */
-extern	int	yyleng;		/* input line length */
-extern	int	myylineno;	/* input line number */
-extern	char	yytext[];	/* input line text */
-
 /* cscope functions called from more than one function or between files */ 
 
 char	*filepath(char *file);
@@ -248,7 +248,6 @@ void	freefilelist(void);
 void	help(void);
 void	incfile(char *file, char *type);
 void    includedir(char *dirname);
-void	initscanner(char *srcfile);
 void    initsymtab(void);
 void	makefilelist(void);
 void	mousecleanup(void);
@@ -292,15 +291,8 @@ int	egrep(char *file, FILE *output, char *format);
 int	getline(char s[], unsigned size, int firstchar, BOOL iscaseless);
 int	mygetch(void);
 int	myopen(char *path, int flag, int mode);
-int	vpopen(char *path, int oflag);
-int	vpaccess(char *path, mode_t amode);
 int	hash(char *ss);
 int	execute(char *a, ...);
-int 	yylex(void);
 long	dbseek(long offset);
 
-/*
-extern int atoi(const char *nptr);
-extern int access(const char *pathname, int mode);
-*/
 

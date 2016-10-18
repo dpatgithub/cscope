@@ -52,7 +52,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
-static char const rcsid[] = "$Id: display.c,v 1.12 2000/05/31 16:54:10 petr Exp $";
+static char const rcsid[] = "$Id: display.c,v 1.15 2001/06/01 12:43:24 broeker Exp $";
 
 int	booklen;		/* OGS book name display field length */
 int	*displine;		/* screen line of displayed reference */
@@ -214,7 +214,7 @@ display(void)
 			
 			/* read the reference line */
 			if (fscanf(refsfound, "%s%s%s %[^\n]", file, function, 
-			    linenum, yytext) < 4) {
+			    linenum, tempstring) < 4) {
 				break;
 			}
 			++nextline;
@@ -264,11 +264,11 @@ display(void)
 			printw("%*s ", numlen, linenum);
 
 			/* there may be tabs in egrep output */
-			while ((s = strchr(yytext, '\t')) != NULL) {
+			while ((s = strchr(tempstring, '\t')) != NULL) {
 				*s = ' ';
 			}
 			/* display the source line */
-			s = yytext;
+			s = tempstring;
 
 			for (;;) {
 				/* see if the source line will fit */
@@ -427,7 +427,7 @@ search(void)
 			findresult = (*f)(pattern);
 		}
 		else {
-			if ((nonglobalrefs = myfopen(temp2, "w")) == NULL) {
+			if ((nonglobalrefs = myfopen(temp2, "wb")) == NULL) {
 				cannotopen(temp2);
 				return(NO);
 			}
@@ -439,7 +439,7 @@ search(void)
 				findcleanup();
 
 				/* append the non-global references */
-				(void) freopen(temp2, "r", nonglobalrefs);
+				(void) freopen(temp2, "rb", nonglobalrefs);
 				while ((c = getc(nonglobalrefs)) != EOF) {
 					(void) putc(c, refsfound);
 				}
@@ -453,7 +453,7 @@ search(void)
 	(void) lseek(symrefs, (long) 0, 0);
 	
 	/* reopen the references found file for reading */
-	(void) freopen(temp1, "r", refsfound);
+	(void) freopen(temp1, "rb", refsfound);
 	nextline = 1;
 	totallines = 0;
 	
@@ -643,6 +643,7 @@ posterr(char *msg, ...)
     if (linemode == YES || incurses == NO)
     {
         (void) vfprintf(stderr, msg, ap); 
+	(void) fputc('\n', stderr);
     }
     else
     {
@@ -734,12 +735,12 @@ BOOL
 writerefsfound(void)
 {
 	if (refsfound == NULL) {
-		if ((refsfound = myfopen(temp1, "w")) == NULL) {
+		if ((refsfound = myfopen(temp1, "wb")) == NULL) {
 			cannotopen(temp1);
 			return(NO);
 		}
 	}
-	else if (freopen(temp1, "w", refsfound) == NULL) {
+	else if (freopen(temp1, "wb", refsfound) == NULL) {
 		postmsg("Cannot reopen temporary file");
 		return(NO);
 	}
