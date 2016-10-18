@@ -39,7 +39,7 @@
 #include <curses.h>
 #include <regex.h>
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: find.c,v 1.5 2000/05/04 19:06:06 petr Exp $";
 
 /* most of these functions have been optimized so their innermost loops have
  * only one test for the desired character by putting the char and 
@@ -63,26 +63,29 @@ static	long	postingsfound;		/* retrieved number of postings */
 static	regex_t regexp;			/* regular expression */
 static	BOOL	isregexp_valid = NO;	/* regular expression status */
 
-void	boolclear();
-POSTING	*boolfile();
-
-static	BOOL	match(), matchrest();
-static	POSTING	*getposting();
-static	char	*lcasify();
-static	void	findcalledbysub(), findterm(), putline(), putpostingref(), 
-		putref(), putsource();
+static	BOOL	match(void);
+static	BOOL	matchrest(void);
+static	POSTING	*getposting(void);
+static	char	*lcasify(char *s);
+static	void	findcalledbysub(char *file, BOOL macro);
+static	void	findterm(void);
+static	void	putline(FILE *output);
+static	void	putpostingref(POSTING *p, char *pat);
+static	void	putref(int seemore, char *file, char *func);
+static	void	putsource(int seemore, FILE *output);
+extern	void	boolclear(void);
+extern	POSTING	*boolfile(INVCONTROL *invcntl, long *num, int boolarg);
 
 /* find the symbol in the cross-reference */
 
 void
-findsymbol()
+findsymbol(void)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 	char	function[PATLEN + 1];	/* function name */
 	char	macro[PATLEN + 1];	/* macro name */
 	char	symbol[PATLEN + 1];	/* symbol name */
-	register int	c;
-	register char	*cp;
+	char	*cp;
 	char	*s;
 	char firstchar;		/* first character of a potential symbol */
 	BOOL fcndef = NO;
@@ -141,7 +144,7 @@ findsymbol()
 				if (*file == '\0') {
 					return;
 				}
-				progress();
+				progress(NULL);
 				/* FALLTHROUGH */
 				
 			case FCNEND:		/* function end */
@@ -210,7 +213,7 @@ findsymbol()
 				firstchar = *cp;
 			}
 			
-			if (isalpha(firstchar) || firstchar == '_') {
+			if (isalpha((unsigned char)firstchar) || firstchar == '_') {
 				blockp = cp;
 				putstring(symbol);
 				if (caseless == YES) {
@@ -259,7 +262,7 @@ findsymbol()
 /* find the function definition or #define */
 
 void
-finddef()
+finddef(void)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 
@@ -295,7 +298,7 @@ finddef()
 			if (*file == '\0') {	/* if end of symbols */
 				return;
 			}
-			progress();
+			progress(NULL);
 			break;
 
 		case DEFINE:		/* could be a macro */
@@ -320,7 +323,7 @@ finddef()
 /* find all function definitions (used by samuel only) */
 
 void
-findallfcns()
+findallfcns(void)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 	char	function[PATLEN + 1];	/* function name */
@@ -335,7 +338,7 @@ findallfcns()
 			if (*file == '\0') {	/* if end of symbols */
 				return;
 			}
-			progress();
+			progress(NULL);
 			/* FALLTHROUGH */
 			
 		case FCNEND:		/* function end */
@@ -357,7 +360,7 @@ findallfcns()
 /* find the functions calling this function */
 
 void
-findcalling()
+findcalling(void)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 	char	function[PATLEN + 1];	/* function name */
@@ -391,7 +394,7 @@ findcalling()
 			if (*file == '\0') {	/* if end of symbols */
 				return;
 			}
-			progress();
+			progress(NULL);
 			(void) strcpy(function, global);
 			break;
 			
@@ -448,7 +451,7 @@ findcalling()
 /* find the text in the source files */
 
 char *
-findstring()
+findstring(void)
 {
 	char	egreppat[2 * PATLEN];
 	char	*cp, *pp;
@@ -470,10 +473,9 @@ findstring()
 /* find this regular expression in the source files */
 
 char *
-findregexp(egreppat)
-char	*egreppat;
+findregexp(char *egreppat)
 {
-	register int	i;
+	int	i;
 	char	*egreperror;
 
 	/* compile the pattern */
@@ -481,8 +483,8 @@ char	*egreppat;
 
 		/* search the files */
 		for (i = 0; i < nsrcfiles; ++i) {
-			register char *file = filepath(srcfiles[i]);
-			progress();
+			char *file = filepath(srcfiles[i]);
+			progress(NULL);
 			if (egrep(file, refsfound, "%s <unknown> %ld ") < 0) {
 				move(1, 0);
 				clrtoeol();
@@ -497,9 +499,9 @@ char	*egreppat;
 /* find matching file names */
 
 void
-findfile()
+findfile(void)
 {
-	register int	i;
+	int	i;
 	
 	for (i = 0; i < nsrcfiles; ++i) {
 		char *s;
@@ -519,7 +521,7 @@ findfile()
 /* find files #including this file */
 
 void
-findinclude()
+findinclude(void)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 
@@ -545,7 +547,7 @@ findinclude()
 			if (*file == '\0') {	/* if end of symbols */
 				return;
 			}
-			progress();
+			progress(NULL);
 			break;
 			
 		case INCLUDE:		/* match function called to pattern */
@@ -563,18 +565,18 @@ findinclude()
 /* initialize */
 
 FINDINIT
-findinit()
+findinit(void)
 {
 	char	buf[PATLEN + 3];
 	BOOL	isregexp = NO;
-	register int	i;
-	register char	*s;
-	register unsigned c;
+	int	i;
+	char	*s;
+	unsigned c;
 
 	isregexp_valid = NO;
 
 	/* remove trailing white space */
-	for (s = pattern + strlen(pattern) - 1; isspace(*s); --s) {
+	for (s = pattern + strlen(pattern) - 1; isspace((unsigned char)*s); --s) {
 		*s = '\0';
 	}
 	/* allow a partial match for a file name */
@@ -596,11 +598,11 @@ findinit()
 	else {
 		/* check for a valid C symbol */
 		s = pattern;
-		if (!isalpha(*s) && *s != '_') {
+		if (!isalpha((unsigned char)*s) && *s != '_') {
 			return(NOTSYMBOL);
 		}
 		while (*++s != '\0') {
-			if (!isalnum(*s) && *s != '_') {
+			if (!isalnum((unsigned char)*s) && *s != '_') {
 				return(NOTSYMBOL);
 			}
 		}
@@ -666,7 +668,7 @@ findinit()
 }
 
 void
-findcleanup()
+findcleanup(void)
 {
 	/* discard any regular expression */
 }
@@ -674,7 +676,7 @@ findcleanup()
 /* match the pattern to the string */
 
 static BOOL
-match()
+match(void)
 {
 	char	string[PATLEN + 1];
 
@@ -698,7 +700,7 @@ match()
 /* match the rest of the pattern to the name */
 
 static BOOL
-matchrest()
+matchrest(void)
 {
 	int	i = 1;
 	
@@ -719,10 +721,7 @@ matchrest()
 /* put the reference into the file */
 
 static void
-putref(seemore, file, func)
-int	seemore;
-char	*file;
-char	*func;
+putref(int seemore, char *file, char *func)
 {
 	FILE	*output;
 
@@ -739,12 +738,10 @@ char	*func;
 /* put the source line into the file */
 
 static void
-putsource(seemore, output)
-int	seemore;
-FILE	*output;
+putsource(int seemore, FILE *output)
 {
 	char *tmpblockp;
-	register char	*cp, nextc = '\0';
+	char	*cp, nextc = '\0';
 	BOOL Change = NO, retreat = NO;
 	
 	if (fileversion <= 5) {
@@ -766,9 +763,9 @@ FILE	*output;
 	}
 	blockp = cp;
 	if (*blockp != '\n' || getrefchar() != '\n' || 
-		!isdigit(getrefchar()) && fileversion >= 12) {
-			postmsg("Internal error: cannot get source line from database");
-			myexit(1);
+	    (!isdigit(getrefchar()) && fileversion >= 12)) {
+		postmsg("Internal error: cannot get source line from database");
+		myexit(1);
 	}
 	/* until a double newline is found */
 	do {
@@ -797,11 +794,10 @@ FILE	*output;
 /* put the rest of the cross-reference line into the file */
 
 static void
-putline(output)
-FILE	*output;
+putline(FILE *output)
 {
-	register char	*cp;
-	register unsigned c;
+	char	*cp;
+	unsigned c;
 	
 	setmark('\n');
 	cp = blockp;
@@ -836,11 +832,10 @@ FILE	*output;
 /* put the rest of the cross-reference line into the string */
 
 void
-putstring(s)
-register char	*s;
+putstring(char *s)
 {
-	register char	*cp;
-	register unsigned c;
+	char	*cp;
+	unsigned c;
 	
 	setmark('\n');
 	cp = blockp;
@@ -863,10 +858,9 @@ register char	*s;
 /* scan past the next occurence of this character in the cross-reference */
 
 char	*
-scanpast(c)
-register char	c;
+scanpast(char c)
 {
-	register char	*cp;
+	char *cp;
 	
 	setmark(c);
 	cp = blockp;
@@ -885,7 +879,7 @@ register char	c;
 /* read a block of the cross-reference */
 
 char	*
-readblock()
+readblock(void)
 {
 	/* read the next block */
 	blocklen = read(symrefs, block, BUFSIZ);
@@ -906,14 +900,13 @@ readblock()
 }
 
 static char	*
-lcasify(s)
-register char	*s;
+lcasify(char *s)
 {
 	static char ls[PATLEN+1];	/* largest possible match string */
-	register char *lptr = ls;
+	char *lptr = ls;
 	
 	while(*s) {
-		*lptr = tolower(*s);
+		*lptr = tolower((unsigned char)*s);
 		lptr++;
 		s++;
 	}
@@ -924,7 +917,7 @@ register char	*s;
 /* find the functions called by this function */
 
 BOOL
-findcalledby()
+findcalledby(void)
 {
 	char	file[PATHLEN + 1];	/* source file name */
 	BOOL	found_caller = NO;	/* seen calling function? */
@@ -957,7 +950,7 @@ findcalledby()
 			if (*file == '\0') {	/* if end of symbols */
 				return(found_caller);
 			}
-			progress();
+			progress(NULL);
 			break;
 
 		case DEFINE:		/* could be a macro */
@@ -976,15 +969,17 @@ findcalledby()
 			break;
 		}
 	}
+
+	return (found_caller);
 }
 
 /* find this term, which can be a regular expression */
 
 static void
-findterm()
+findterm(void)
 {
-	register char	*s;
-	register int	len;
+	char	*s;
+	int	len;
 	char	prefix[PATLEN + 1];
 	char	term[PATLEN + 1];
 
@@ -1004,7 +999,7 @@ findterm()
 		   less than lower case */
 		s = prefix;
 		while (*s != '\0') {
-			*s = toupper(*s);
+ 			*s = toupper((unsigned char)*s);
 			++s;
 		}
 	}
@@ -1026,7 +1021,7 @@ findterm()
 			s = lcasify(s);	/* make it lower case */
 		}
 		/* if it matches */
-		if (regexec (&regexp, s, (size_t)0, NULL, 0) != 0) {
+		if (regexec (&regexp, s, (size_t)0, NULL, 0) == 0) {
 	
 			/* add its postings to the set */
 			if ((postingp = boolfile(&invcontrol, &npostings, BOOL_OR)) == NULL) {
@@ -1062,7 +1057,7 @@ findterm()
 /* get the next posting for this term */
 
 static POSTING *
-getposting()
+getposting(void)
 {
 	if (npostings-- <= 0) {
 		return(NULL);
@@ -1078,9 +1073,7 @@ getposting()
 /* put the posting reference into the file */
 
 static void
-putpostingref(p, pat)
-POSTING	*p;
-char	*pat;
+putpostingref(POSTING *p, char *pat)
 {
 	static char	function[PATLEN + 1];	/* function name */
 
@@ -1112,8 +1105,7 @@ char	*pat;
 /* seek to the database offset */
 
 long
-dbseek(offset)
-long offset;
+dbseek(long offset)
 {
 	long	n;
 	int	rc = 0;
@@ -1132,9 +1124,7 @@ long offset;
 }
 
 static void
-findcalledbysub(file, macro)
-char	*file;
-BOOL	macro;
+findcalledbysub(char *file, BOOL macro)
 {
 	/* find the next function call or the end of this function */
 	while (scanpast('\t') != NULL) {

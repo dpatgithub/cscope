@@ -30,18 +30,20 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id$ */
+/* $Id: constants.h,v 1.3 2000/05/11 14:41:27 petr Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
  *	preprocessor macro and constant definitions
  */
 
+#include <config.h>		/* Get OS defines */
+
 #define ctrl(x)	(x & 037)	/* control character macro */
 
 /* database output macros that update its offset */
 #define	dbputc(c)	(++dboffset, (void) putc(c, newrefs))
-#if BSD && !sun
+#if Linux || BSD && !sun
 #define	dbfputs(s)	(dboffset += strlen(s), fputs(s, newrefs))
 #else
 #define	dbfputs(s)	(dboffset += fputs(s, newrefs))
@@ -65,6 +67,8 @@
 #define	skiprefchar()	if (*(++blockp + 1) == '\0') (void) readblock()
 
 #define	ESC	'\033'		/* escape character */
+#define	DEL	'\177'		/* delete character */
+#define	DUMMYCHAR	' '	/* use space as a dummy character */
 #define	MSGLEN	PATLEN + 80	/* displayed message length */
 #define	NUMLEN	5		/* line number length */
 #define	PATHLEN	250		/* file pathname length */
@@ -120,16 +124,22 @@
 #define INCLUDES	8
 #define	FIELDS		9
 
-#if BSD || V9
+#if (BSD || V9) && !__NetBSD__
 #define TERMINFO	0	/* no terminfo curses */
 #else
 #define TERMINFO	1
 #endif
 
 #if !TERMINFO
+#ifndef KEY_BREAK
 #define	KEY_BREAK	0400	/* easier to define than to add #if around the use */
+#endif
+#ifndef KEY_ENTER
 #define	KEY_ENTER	0401
+#endif
+#ifndef KEY_BACKSPACE
 #define	KEY_BACKSPACE	0402
+#endif
 
 #if !sun
 #define cbreak()	crmode()			/* name change */

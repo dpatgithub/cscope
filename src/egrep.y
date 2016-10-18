@@ -31,7 +31,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id$ */
+/* $Id: egrep.y,v 1.3 2000/05/03 22:02:10 petr Exp $ */
 
 /*
  * egrep -- fine lines containing a regular expression
@@ -91,8 +91,18 @@ static	long lnum;
 static	int iflag;
 static	jmp_buf	env;	/* setjmp/longjmp buffer */
 static	char *message;	/* error message */
-static	int	cstate(), member(), notin();
-static	void	synerror(), overflo(), add(), follow();
+static	int cstate(int v);
+static	int member(int symb, int set, int torf);
+static	int notin(int n);
+static	void synerror(void);
+static	void overflo(void);
+static	void add(int *array, int n);
+static	void follow(int v);
+static	int unary(int x, int d);
+static	int node(int x, int l, int r);
+static	int cclenter(int x);
+static	int enter(int x);
+
 %}
 
 %%
@@ -140,19 +150,19 @@ r:	r OR r
 	;
 
 %%
-static void
-yyerror(s)
-char	*s;
+int
+yyerror(char *s)
 {
 	message = s;
 	longjmp(env, 1);
 }
 
-static
-yylex() {
+static int
+yylex(void)
+{
 	extern int yylval;
 	int cclcnt, x;
-	register char c, d;
+	char c, d;
 	switch(c = nextch()) {
 		case '$':
 		case '^': c = '\n';
@@ -200,13 +210,15 @@ yylex() {
 	}
 }
 
-static void
-synerror() {
+void
+synerror(void)
+{
 	yyerror("Syntax error");
 }
 
-static
-enter(x) int x; {
+static int
+enter(int x)
+{
 	if(line >= MAXLIN) overflo();
 	name[line] = x;
 	left[line] = 0;
@@ -214,16 +226,18 @@ enter(x) int x; {
 	return(line++);
 }
 
-static
-cclenter(x) int x; {
-	register linno;
+static int
+cclenter(int x)
+{
+	int linno;
 	linno = enter(x);
 	right[linno] = count;
 	return (linno);
 }
 
-static
-node(x, l, r) {
+static int
+node(int x, int l, int r)
+{
 	if(line >= MAXLIN) overflo();
 	name[line] = x;
 	left[line] = l;
@@ -233,8 +247,9 @@ node(x, l, r) {
 	return(line++);
 }
 
-static
-unary(x, d) {
+static int
+unary(int x, int d)
+{
 	if(line >= MAXLIN) overflo();
 	name[line] = x;
 	left[line] = d;
@@ -244,13 +259,15 @@ unary(x, d) {
 }
 
 static void
-overflo() {
+overflo(void)
+{
 	yyerror("internal table overflow");
 }
 
 static void
-cfoll(v) {
-	register i;
+cfoll(int v)
+{
+	int i;
 	if (left[v] == 0) {
 		count = 0;
 		for (i=1; i<=line; i++) tmpstat[i] = 0;
@@ -265,8 +282,9 @@ cfoll(v) {
 }
 
 static void
-cgotofn() {
-	register c, i, k;
+cgotofn(void)
+{
+	int c, i, k;
 	int n, s;
 	char symbol[NCHARS];
 	int j, pc, pos;
@@ -360,9 +378,10 @@ cgotofn() {
 	}
 }
 
-static
-cstate(v) {
-	register b;
+static int
+cstate(int v)
+{
+	int b;
 	if (left[v] == 0) {
 		if (tmpstat[v] != 1) {
 			tmpstat[v] = 1;
@@ -386,9 +405,10 @@ cstate(v) {
 	}
 }
 
-static
-member(symb, set, torf) {
-	register i, num, pos;
+static int
+member(int symb, int set, int torf)
+{
+	int i, num, pos;
 	num = chars[set];
 	pos = set + 1;
 	for (i=0; i<(unsigned)num; i++)
@@ -396,9 +416,10 @@ member(symb, set, torf) {
 	return (!torf);
 }
 
-static
-notin(n) {
-	register i, j, pos;
+static int
+notin(int n)
+{
+	int i, j, pos;
 	for (i=0; i<=n; i++) {
 		if (positions[state[i]] == count) {
 			pos = state[i] + 1;
@@ -413,8 +434,9 @@ notin(n) {
 }
 
 static void
-add(array, n) int *array; {
-	register i;
+add(int *array, int n)
+{
+	int i;
 	if (nxtpos + count > MAXPOS) overflo();
 	array[n] = nxtpos;
 	positions[nxtpos++] = count;
@@ -426,7 +448,8 @@ add(array, n) int *array; {
 }
 
 static void
-follow(v) int v; {
+follow(int v)
+{
 	int p;
 	if (v == line) return;
 	p = parent[v];
@@ -457,25 +480,24 @@ follow(v) int v; {
 }
 
 char *
-egrepinit(egreppat)
-char	*egreppat;
+egrepinit(char *egreppat)
 {
 	/* initialize the global data */
-	memset((char *) gotofn, 0, sizeof(gotofn));
-	memset((char *) state, 0, sizeof(state));
-	memset((char *) out, 0, sizeof(out));
+	memset(gotofn, 0, sizeof(gotofn));
+	memset(state, 0, sizeof(state));
+	memset(out, 0, sizeof(out));
 	line = 1;
-	memset((char *) name, 0, sizeof(name));
-	memset((char *) left, 0, sizeof(left));
-	memset((char *) right, 0, sizeof(right));
-	memset((char *) parent, 0, sizeof(parent));
-	memset((char *) foll, 0, sizeof(foll));
-	memset((char *) positions, 0, sizeof(positions));
-	memset((char *) chars, 0, sizeof(chars));
+	memset(name, 0, sizeof(name));
+	memset(left, 0, sizeof(left));
+	memset(right, 0, sizeof(right));
+	memset(parent, 0, sizeof(parent));
+	memset(foll, 0, sizeof(foll));
+	memset(positions, 0, sizeof(positions));
+	memset(chars, 0, sizeof(chars));
 	nxtpos = 0;
 	nxtchar = 0;
-	memset((char *) tmpstat, 0, sizeof(tmpstat));
-	memset((char *) initstat, 0, sizeof(initstat));
+	memset(tmpstat, 0, sizeof(tmpstat));
+	memset(initstat, 0, sizeof(initstat));
 	xstate = 0;
 	count = 0;
 	icount = 0;
@@ -489,19 +511,17 @@ char	*egreppat;
 	return(message);
 }
 
-egrep(file, output, format)
-register char *file;
-FILE	*output;
-char	*format;
+int
+egrep(char *file, FILE *output, char *format)
 {
-	register char *p;
-	register unsigned cstat;
-	register ccount;
+	char *p;
+	unsigned cstat;
+	int ccount;
 	char buf[2*BUFSIZ];
 	char *nlp;
 	unsigned int istat;
 	int in_line;
-	register FILE	*fptr;
+	FILE	*fptr;
 
 	if ((fptr = myfopen(file, "r")) == NULL) {
 		return(-1);
@@ -594,11 +614,9 @@ done:	(void) fclose(fptr);
  * Return sp.
  */
 char *
-memset(sp, c, n)
-register char *sp, c;
-register int n;
+memset(char *sp, char c, int n)
 {
-	register char *sp0 = sp;
+	char *sp0 = sp;
 
 	while (--n >= 0)
 		*sp++ = c;
@@ -607,9 +625,7 @@ register int n;
 #endif
 
 void
-egrepcaseless(i)
-int i;
+egrepcaseless(int i)
 {
 	iflag = i;	/* simulate "egrep -i" */
 }
-	

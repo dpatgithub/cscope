@@ -36,11 +36,12 @@
  */
 
 #include "global.h"
+#include <stdlib.h>
 #include <curses.h>	/* KEY_.* */
 #include <fcntl.h>	/* O_RDONLY */
 #include <ctype.h>
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: command.c,v 1.5 2000/05/05 17:35:00 broeker Exp $";
 
 BOOL	caseless;		/* ignore letter case when searching */
 BOOL	*change;		/* change this line */
@@ -53,28 +54,25 @@ static	char	pipeprompt[] = "Pipe to shell command: ";
 static	char	readprompt[] = "Read from file: ";
 static	char	toprompt[] = "To: ";
 
-void	atchange();
-BOOL	changestring();
-void	clearprompt();
-void	editall();
-void	editref();
-void	help();
-void	mark();
-BOOL	readrefs();
-void	scrollbar();
-
-static	void	countrefs();
+void	atchange(void);
+BOOL	changestring(void);
+void	clearprompt(void);
+void	mark(int i);
+void	scrollbar(MOUSE *p);
+static	void	countrefs(void);
+extern	void	editall(void);
+extern	void	editref(int);
+extern	void	help(void);
 
 /* execute the command */
 
 BOOL
-command(commandc)
-int	commandc;
+command(int commandc)
 {
 	char	filename[PATHLEN + 1];	/* file path name */
 	MOUSE *p;			/* mouse data */
-	register int	c, i;
-	register FILE	*file;
+	int	c, i;
+	FILE	*file;
 	struct	cmd	 *curritem, *item;	/* command history */
 	char	*s;
 
@@ -115,7 +113,7 @@ int	commandc;
 	case ESC:	/* possible unixpc mouse selection */
 #endif
 	case ctrl('X'):	/* mouse selection */
-		if ((p = getmouseaction()) == NULL) {
+		if ((p = getmouseaction(DUMMYCHAR)) == NULL) {
 			return(NO);	/* unknown control sequence */
 		}
 		/* if the button number is a scrollbar tag */
@@ -327,11 +325,11 @@ int	commandc;
 #endif
 		(void) clearok(curscr, TRUE);
 		(void) wrefresh(curscr);
-		drawscrollbar(topline, bottomline, totallines);
+		drawscrollbar(topline, bottomline);
 		return(NO);
 
 	case '!':	/* shell escape */
-		(void) execute(shell, shell, (char *) 0);
+		(void) execute(shell, shell, NULL);
 		seekline(topline);
 		break;
 
@@ -399,6 +397,23 @@ int	commandc;
 		if (isdigit(commandc) && commandc != '0' && !mouse) {
 			editref(commandc - '1');
 		}
+		/* if this is a selected line greater than 9 */
+		else if (commandc == '0' && select_large && !mouse) {
+			commandc = mygetch();
+			if (commandc >= '0' && commandc <= '9') {
+				editref(9 + commandc - '0');
+			}
+			else if (commandc >= 'a' && commandc <='z') {
+				editref(19 + commandc - 'a');
+			}
+			else if (commandc >= 'A' && commandc <='Z') {
+				editref(19 + commandc - 'A');
+			}
+			else {
+				return(NO);
+			}
+			
+		}
 		/* if this is the start of a pattern */
 		else if (isprint(commandc)) {
 	ispat:		if (getline(newpat, COLS - fldcolumn - 1, commandc,
@@ -449,7 +464,7 @@ int	commandc;
 /* clear the prompt line */
 
 void
-clearprompt()
+clearprompt(void)
 {
 	(void) move(PRLINE, 0);
 	(void) clrtoeol();
@@ -458,11 +473,10 @@ clearprompt()
 /* read references from a file */
 
 BOOL
-readrefs(filename)
-char	*filename;
+readrefs(char *filename)
 {
-	register FILE	*file;
-	register int	c;
+	FILE	*file;
+	int	c;
 
 	if ((file = myfopen(filename, "r")) == NULL) {
 		cannotopen(filename);
@@ -488,7 +502,7 @@ char	*filename;
 /* change one text string to another */
 
 BOOL
-changestring()
+changestring(void)
 {
 	char	newfile[PATHLEN + 1];	/* new file name */
 	char	oldfile[PATHLEN + 1];	/* old file name */
@@ -506,7 +520,7 @@ changestring()
 		return(NO);
 	}
 	/* create the line change indicators */
-	change = (BOOL *) mycalloc((unsigned) totallines, sizeof(BOOL));
+	change = mycalloc((unsigned) totallines, sizeof(BOOL));
 	changing = YES;
 	mousemenu();
 
@@ -547,7 +561,7 @@ changestring()
 
 		case ESC:	/* don't change lines */
 #if UNIXPC
-			if((p = getmouseaction()) == NULL) {
+			if((p = getmouseaction(DUMMYCHAR)) == NULL) {
 				goto nochange;	/* unknown escape sequence */
 			}
 			break;
@@ -574,7 +588,7 @@ changestring()
 			seekline(totallines);
 			break;
 		case ctrl('X'):	/* mouse selection */
-			if ((p = getmouseaction()) == NULL) {
+			if ((p = getmouseaction(DUMMYCHAR)) == NULL) {
 				goto same;	/* unknown control sequence */
 			}
 			/* if the button number is a scrollbar tag */
@@ -595,6 +609,18 @@ changestring()
 			/* if a line was selected */
 			if (isdigit(c) && c != '0' && !mouse) {
 				mark(c - '1');
+			}
+			else if (c == '0' && select_large && !mouse) {
+				c = mygetch ();
+				if (c >= '0' && c <= '9') {
+					mark(9 + c - '0');
+				}
+				else if (c >= 'a' && c <= 'z') {
+					mark(19 + c - 'a');
+				}
+				else if (c >= 'A' && c <= 'Z') {
+					mark(19 + c - 'A');
+				}
 			}
 			goto same;
 		}
@@ -633,15 +659,15 @@ changestring()
 				if (strchr("/\\[.^*", *s) != NULL) {
 					(void) putc('\\', script);
 				}
-				if (caseless == YES && isalpha(*s)) {
+				if (caseless == YES && isalpha((unsigned char)*s)) {
 					(void) putc('[', script);
-					if(islower(*s)) {
-						(void) putc(toupper(*s), script);
+					if(islower((unsigned char)*s)) {
+						(void) putc(toupper((unsigned char)*s), script);
 						(void) putc(*s, script);
 					}
 					else {
 						(void) putc(*s, script);
-						(void) putc(tolower(*s), script);
+						(void) putc(tolower((unsigned char)*s), script);
 					}
 					(void) putc(']', script);
 				}
@@ -668,7 +694,7 @@ changestring()
 		clearprompt();
 		(void) refresh();
 		(void) fprintf(stderr, "Changed lines:\n\r");
-		(void) execute("sh", "sh", temp2, (char *) 0);
+		(void) execute("sh", "sh", temp2, NULL);
 		askforreturn();
 		seekline(1);
 	}
@@ -678,21 +704,25 @@ nochange:
 	}
 	changing = NO;
 	mousemenu();
-	free((char *) change);
+	free(change);
 	return(anymarked);
 }
 
 /* mark/unmark this displayed line to be changed */
 
 void
-mark(i)
-int	i;
+mark(int i)
 {
 	int	j;
 	
 	j = i + topline - 1;
 	if (j < totallines) {
-		(void) move(displine[i], 1);
+		if (select_large == YES) {
+			(void) move(displine[i], 2);
+		}
+		else {
+			(void) move(displine[i], 1);
+		}
 		if (change[j] == NO) {
 			change[j] = YES;
 			(void) addch('>');
@@ -707,8 +737,7 @@ int	i;
 /* scrollbar actions */
 
 void
-scrollbar(p)
-MOUSE *p;
+scrollbar(MOUSE *p)
 {
 	/* reposition list if it makes sense */
 	if (totallines == 0) {
@@ -747,14 +776,14 @@ MOUSE *p;
 /* count the references found */
 
 static void
-countrefs()
+countrefs(void)
 {
 	char	*subsystem;		/* OGS subsystem name */
 	char 	*book;			/* OGS book name */
 	char	file[PATHLEN + 1];	/* file name */
 	char	function[PATLEN + 1];	/* function name */
 	char	linenum[NUMLEN + 1];	/* line number */
-	register int	i;
+	int	i;
 
 	/* count the references found and find the length of the file,
 	   function, and line number display fields */
@@ -765,8 +794,10 @@ countrefs()
 	numlen = 0;
 	while ((i = fscanf(refsfound, "%250s%250s%6s %5000[^\n]", file,
 	    function, linenum, yytext)) != EOF) {
-		if (i != 4 || !isgraph(*file) || !isgraph(*function) ||
-		    !isdigit(*linenum)) {
+		if (i != 4 ||
+		    !isgraph((unsigned char)*file) ||
+		    !isgraph((unsigned char)*function) ||
+		    !isdigit((unsigned char)*linenum)) {
 			postmsg("File does not have expected format");
 			totallines = 0;
 			return;

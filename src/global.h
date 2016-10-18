@@ -30,27 +30,32 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id$ */
+/* $Id: global.h,v 1.6 2000/05/05 17:35:00 broeker Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
  *	global type, data, and function definitions
  */
 
+#include <config.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <ctype.h>	/* isalpha, isdigit, etc. */
 #include <signal.h>	/* SIGINT and SIGQUIT */
 #include <stdio.h>	/* standard I/O package */
+#include <stdlib.h>     /* standard library functions */
 #include <string.h>	/* string functions */
 #include "constants.h"	/* misc. constants */
 #include "invlib.h"	/* inverted index library */
 #include "library.h"	/* library function return values */
 
+#ifndef RETSIGTYPE
 #if SVR2 || BSD && !sun
-#define SIGTYPE int
+#define RETSIGTYPE int
 #else
-#define SIGTYPE void
+#define RETSIGTYPE void
 #endif
+#endif /* RETSIGTYPE */
 
 typedef	enum	{		/* boolean data type */
 	NO,
@@ -102,7 +107,9 @@ extern	BOOL	incurses;	/* in curses */
 extern	INVCONTROL invcontrol;	/* inverted file control structured */
 extern	BOOL	invertedindex;	/* the database has an inverted index */
 extern	BOOL	isuptodate;	/* consider the crossref up-to-date */
+extern	BOOL	kernelmode;	/* don't use DFLT_INCDIR - bad for kernels */
 extern	BOOL	linemode;	/* use line oriented user interface */
+extern	BOOL	recurse_dir;	/* recurse dirs when searching for src files */
 extern	char	*namefile;	/* file of file names */
 extern	char	*newreffile;	/* new cross-reference file name */
 extern	FILE	*newrefs;	/* new cross-reference */
@@ -110,6 +117,7 @@ extern	BOOL	ogs;		/* display OGS book and subsystem names */
 extern	FILE	*postings;	/* new inverted index postings */
 extern	char	*prependpath;	/* prepend path to file names */
 extern	FILE	*refsfound;	/* references found file */
+extern	BOOL	select_large;	/* enable more than 9 select lines */
 extern	int	symrefs;	/* cross-reference file */
 extern	char	temp1[];	/* temporary file name */
 extern	char	temp2[];	/* temporary file name */
@@ -191,22 +199,92 @@ extern	int	yylineno;	/* input line number */
 extern	char	yytext[];	/* input line text */
 
 /* cscope functions called from more than one function or between files */ 
-char	*filepath(), *findregexp(), *inviewpath(), *lookup(), *mygetenv(),
-	*pathcomponents(), *readblock(), *scanpast();
-void	addsrcfile(), askforchar(), askforreturn(), atfield(), cannotopen(),
-	clearmsg2(), display(), drawscrollbar(), edit(), 
-	entercurses(), findcleanup(), 
-	freefilelist(), incfile(), makefilelist(), mousecleanup(), 
-	mousemenu(), mouseinit(), mousereinit(), myexit(), myperror(), 
-	ogsnames(), progress(), putfilename(), postmsg(), postmsg2(), 
-	putposting(), putstring(), rebuild(), seekline(), setfield(), 
-	shellpath(), myungetch(), warning(), writestring();
-BOOL	infilelist(), search(), writerefsfound();
-FILE	*myfopen();
-FINDINIT findinit();
-MOUSE	*getmouseaction();
-struct	cmd *currentcmd(), *prevcmd(), *nextcmd();
-int	getline(), mygetch(), myopen(), vpaccess(), hash(), execute(char *, ...);
-long	dbseek();
+char	*filepath(char *file);
+char	*findregexp(char *egreppat);
+char	*inviewpath(char *file);
+char	*lookup(char *ident);
+char	*mygetenv(char *variable, char *deflt);
+char	*pathcomponents(char *path, int components);
+char	*readblock(void);
+char	*scanpast(char c);
 
-extern int atoi(), access();
+void	addcmd(int f, char *s);
+void	addsrcfile(char *name, char *path);
+void	askforchar(void);
+void	askforreturn(void);
+void	atfield(void);
+void	cannotwrite(char *file);
+void	cannotopen(char *file);
+void	clearmsg2(void);
+void	crossref(char *srcfile);
+void    dispinit(void);
+void	display(void);
+void	drawscrollbar(int top, int bot);
+void	edit(char *file, char *linenum);
+void	entercurses(void);
+void	exitcurses(void);
+void	findcleanup(void);
+void    freesrclist(void);
+void    freeinclist(void);
+void    freecrossref(void);
+void	freefilelist(void);
+void	incfile(char *file, char *type);
+void    includedir(char *dirname);
+void	initscanner(char *srcfile);
+void    initsymtab(void);
+void	makefilelist(void);
+void	mousecleanup(void);
+void	mousemenu(void);
+void	mouseinit(void);
+void	mousereinit(void);
+void	myexit(int sig);
+void	myperror(char *text);
+void	ogsnames(char *file, char **subsystem, char **book);
+void	progress(const char *fmt, ...);
+void	putfilename(char *srcfile);
+void	postmsg(char *msg);
+void	postmsg2(char *msg);
+void	putposting(char *term, int type);
+void	putstring(char *s);
+void	rebuild(void);
+void	resetcmd(void);
+void	seekline(int line);
+void	setfield(void);
+void	shellpath(char *out, int limit, char *in);
+void    sourcedir(char *dirlist);
+void	myungetch(int c);
+void	warning(char *text);
+void	writestring(char *s);
+
+BOOL	command(int commandc);
+BOOL	infilelist(char *file);
+BOOL	readrefs(char *filename);
+BOOL	search(void);
+BOOL	writerefsfound(void);
+
+FILE	*myfopen(char *path, char *mode);
+FINDINIT findinit(void);
+MOUSE	*getmouseaction(char leading_char);
+struct	cmd *currentcmd(void);
+struct	cmd *prevcmd(void);
+struct	cmd *nextcmd(void);
+
+int	egrep(char *file, FILE *output, char *format);
+int	getline(char s[], unsigned size, int firstchar, BOOL iscaseless);
+int	invforward(INVCONTROL *invcntl);
+int	invopen(INVCONTROL *invcntl, char *invname, char *invpost, int stat);
+int	mygetch(void);
+int	myopen(char *path, int flag, int mode);
+int	vpopen(char *path, int oflag);
+int	vpaccess(char *path, mode_t amode);
+int	hash(char *ss);
+int	execute(char *a, ...);
+int 	yylex(void);
+long	dbseek(long offset);
+long	invterm(INVCONTROL *invcntl, char *term);
+
+/*
+extern int atoi(const char *nptr);
+extern int access(const char *pathname, int mode);
+*/
+

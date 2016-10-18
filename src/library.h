@@ -30,7 +30,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id$ */
+/* $Id: library.h,v 1.2 2000/05/03 22:02:10 petr Exp $ */
 
 /* library function return value declarations */
 
@@ -44,12 +44,20 @@
 #endif
 
 /* private library */
-char	*basename(), *compath(), *egrepinit(), *logdir();
-char	*mycalloc(), *mymalloc(), *myrealloc(), *stralloc();
-FILE	*mypopen(), *vpfopen();
-void	egrepcaseless();
+char	*basename(char *path);
+char	*compath(char *pathname);
+char	*egrepinit(char *egreppat);
+char	*logdir(char *name);
+void	*mycalloc(int nelem, int size);
+void	*mymalloc(int size);
+void	*myrealloc(void *p, int size);
+char	*stralloc(char *s);
+FILE	*mypopen(char *cmd, char *mode);
+FILE	*vpfopen(char *filename, char *type);
+void	egrepcaseless(int i);
 
 /* standard C library */
+#if 0
 char	*ctime(), *getcwd(), *getenv(), *mktemp();
 char	*strcat(), *strcpy(), *strncpy(), *strpbrk(), *strchr(), *strrchr();
 char	*strtok();
@@ -58,6 +66,7 @@ unsigned sleep();
 void	exit(), free(), qsort();
 #if BSD
 FILE	*popen();	/* not in stdio.h */
+#endif
 #endif
 
 /* Programmer's Workbench library (-lPW) */

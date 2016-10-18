@@ -33,12 +33,15 @@
 /* vpinit - initialize vpdirs or update vpdirs based on currentdir */
 
 #include <stdio.h>	/* stderr */
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "vp.h"
 #include "library.h"
+#include "global.h"
 #include "constants.h"
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: vpinit.c,v 1.5 2000/05/05 17:51:45 broeker Exp $";
 
 #if !NOMALLOC
 char	**vpdirs;	/* directories (including current) in view path */
@@ -48,21 +51,15 @@ char	vpdirs[MAXDIR][DIRLEN + 1];
 #endif
 int	vpndirs;	/* number of directories in view path */
 
-extern	char	*argv0;	/* command name (must be set in main function) */
-
 void
-vpinit(currentdir)
-char	*currentdir;
+vpinit(char *currentdir)
 {
 	char	*suffix;	/* path from view path node */
 	char	*vpath;		/* VPATH environment variable value */
 	char	buf[MAXPATH + 1];
 	int	i;
 	char	*s;
-#if !NOMALLOC
-	char	*mymalloc(), *stralloc();
-	void	free();
-#else
+#if NOMALLOC
 	char	*node;		/* view path node */
 	char	vpathbuf[MAXVPATH + 1];
 #endif
@@ -73,7 +70,7 @@ char	*currentdir;
 		for (i = 0; i < vpndirs; ++i) {
 			free(vpdirs[i]);
 		}
-		free((char *) vpdirs);
+		free(vpdirs);
 #endif
 		vpndirs = 0;
 	}
@@ -107,7 +104,7 @@ char	*currentdir;
 		}
 	}
 	/* create the source directory list */
-	vpdirs = (char **) mymalloc(vpndirs * sizeof(char *));
+	vpdirs = mymalloc(vpndirs * sizeof(char *));
 
 	/* don't change VPATH in the environment */
 	vpath = stralloc(vpath);
@@ -126,8 +123,7 @@ char	*currentdir;
 	}
 	/* convert the view path nodes to directories */
 	for (i = 0; i < vpndirs; ++i) {
-		s = mymalloc((unsigned) (strlen(vpdirs[i]) + 
-			strlen(suffix) + 1));
+		s = mymalloc((strlen(vpdirs[i]) + strlen(suffix) + 1));
 		(void) strcpy(s, vpdirs[i]);
 		(void) strcat(s, suffix);
 		vpdirs[i] = s;

@@ -37,11 +37,10 @@
 #include "vp.h"
 #include "global.h"
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: vpfopen.c,v 1.2 2000/05/03 22:02:10 petr Exp $";
 
 FILE *
-vpfopen(filename, type)
-char	*filename, *type;
+vpfopen(char *filename, char *type)
 {
 	char	buf[MAXPATH + 1];
 	FILE	*returncode;
@@ -49,7 +48,7 @@ char	*filename, *type;
 
 	if ((returncode = myfopen(filename, type)) == NULL && filename[0] != '/' &&
 	    strcmp(type, "r") == 0) {
-		vpinit((char *) 0);
+		vpinit(NULL);
 		for (i = 1; i < vpndirs; i++) {
 			(void) sprintf(buf, "%s/%s", vpdirs[i], filename);
 			if ((returncode = myfopen(buf, type)) != NULL) {

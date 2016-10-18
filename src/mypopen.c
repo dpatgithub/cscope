@@ -34,22 +34,22 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "global.h"	/* pid_t, SIGTYPE, shell, and basename() */
+#include <sys/types.h>
+#include <sys/wait.h>
+#include "global.h"	/* pid_t, RETSIGTYPE, shell, and basename() */
 
 #define	tst(a,b) (*mode == 'r'? (b) : (a))
 #define	RDR	0
 #define	WTR	1
 #define CLOSE_ON_EXEC	1
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: mypopen.c,v 1.3 2000/05/03 22:02:10 petr Exp $";
 
 static pid_t popen_pid[20];
-static SIGTYPE (*tstat)();
+static RETSIGTYPE (*tstat)(int);
 
-myopen(path, flag, mode)
-char *path;
-int flag;
-int mode;
+int
+myopen(char *path, int flag, int mode)
 {
 	/* opens a file descriptor and then sets close-on-exec for the file */
 	int fd;
@@ -66,9 +66,7 @@ int mode;
 }
 
 FILE *
-myfopen(path, mode)
-char *path;
-char *mode;
+myfopen(char *path, char *mode)
 {
 	/* opens a file pointer and then sets close-on-exec for the file */
 	FILE *fp;
@@ -82,13 +80,12 @@ char *mode;
 }
 
 FILE *
-mypopen(cmd, mode)
-char	*cmd, *mode;
+mypopen(char *cmd, char *mode)
 {
 	int	p[2];
-	register pid_t *poptr;
-	register int myside, yourside;
-	register pid_t pid;
+	pid_t *poptr;
+	int myside, yourside;
+	pid_t pid;
 
 	if(pipe(p) < 0)
 		return(NULL);
@@ -124,13 +121,12 @@ char	*cmd, *mode;
 }
 
 int
-pclose(ptr)
-FILE	*ptr;
+pclose(FILE *ptr)
 {
-	register int f;
-	register pid_t r;
+	int f;
+	pid_t r;
 	int status;
-	SIGTYPE (*hstat)(), (*istat)(), (*qstat)();
+	RETSIGTYPE (*hstat)(int), (*istat)(int), (*qstat)(int);
 
 	f = fileno(ptr);
 	(void) fclose(ptr);

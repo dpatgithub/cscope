@@ -46,7 +46,7 @@
 
 #include <string.h>
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: compath.c,v 1.2 2000/05/03 22:02:10 petr Exp $";
 
 #if BSD
 #define	strchr	index
@@ -56,11 +56,10 @@ static char const rcsid[] = "$Id$";
 #endif
 
 char *
-compath(pathname)			/*FDEF*/
-char *pathname;
+compath(char *pathname)			/*FDEF*/
 {
-	register char	*nextchar;
-	register char	*lastchar;
+	char	*nextchar;
+	char	*lastchar;
 	char	*sofar;
 	char	*pnend;
 
@@ -146,8 +145,8 @@ char *pathname;
 			 */
 
 			if ((*nextchar == '.') &&
-			    (*(nextchar + 1) == '/') ||
-			    ((*(nextchar + 1) == '.') && (*(nextchar + 2) == '/')))
+			    ((*(nextchar + 1) == '/') ||
+			     ((*(nextchar + 1) == '.') && (*(nextchar + 2) == '/'))))
 				/* EMPTY */;
 			else
 			{

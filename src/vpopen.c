@@ -35,23 +35,23 @@
 
 #include <stdio.h>
 #include <fcntl.h>
+#include "global.h"
 #include "vp.h"
 
-#define READ	0
+#define OPENFLAG_READ	0
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: vpopen.c,v 1.3 2000/05/03 22:02:10 petr Exp $";
 
-vpopen(path, oflag)
-char	*path;
-int	oflag;
+int
+vpopen(char *path, int oflag)
 {
 	char	buf[MAXPATH + 1];
 	int	returncode;
 	int	i;
 
 	if ((returncode = myopen(path, oflag, 0666)) == -1 && path[0] != '/' &&
-	    oflag == READ) {
-		vpinit((char *) 0);
+	    oflag == OPENFLAG_READ) {
+		vpinit(NULL);
 		for (i = 1; i < vpndirs; i++) {
 			(void) sprintf(buf, "%s/%s", vpdirs[i], path);
 			if ((returncode = myopen(buf, oflag, 0666)) != -1) {

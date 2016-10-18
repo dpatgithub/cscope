@@ -1,1 +1,46 @@
-(2000/04/17 - Petr Sorfa) Initial OpenSource release. Initial Linux port
+(2000/05/10 - klausner) NetBSD current support
+(2000/05/09 - petr) added packages directory and cscope.spec file
+(2000/05/09 - broeker) alloc.c, invlib.c, invlib.h: initial 64bit support
+(2000/05/05 - broeker) global.h, invlib.c: change return type of invterm to
+	                'long'
+(2000/05/05 - broeker) remove superfluous casts from and to type 'void *'
+                       in calls to malloc() family of routines
+(2000/05/04 - hops) configure: find flex libs in /usr/local, 
+                    cmdline args to specify use of flex/lex, yacc/byacc/bison
+(2000/06/03 - broeker) some code cleanup
+(2000/05/03 - broeker) more code cleanup and -Wall warnings removal
+(2000/05/03 - broeker) major code cleanup and fixing of memory leaks
+(2000/05/03 - broeker) configure checks for vsnprintf
+(2000/05/03 - petr) More than 9 select lines displays selection in uppercase
+(2000/05/02 - petr) Added support for more than 9 select lines (up to 45)
+                    temporary option -t enables this feature for testing
+(2000/05/01 - petr) Updated configure.in (and configure) to handle UW7
+(2000/04/28 - petr) Fixed another -q failure on large data
+(2000/04/28 - petr) Fixed -q failure
+(2000/04/27 - brent) Add support for 3 letter suffixes (currently .tcc)
+(2000/04/27 - brent) Add -R option to recurse subdirectories
+(2000/04/27 - petr) Changed version number to 15.0bl2
+(2000/04/27 - uzi) Added autoconf and restructure directories
+(2000/04/26 - petr) Tagged current source as v15_0_bl1 before autoconf support
+(2000/04/26 - darrylo) minor fixs in crossref.c and scanner.l
+(2000/04/26 - petr) changed spelling of psuedo to pseudo in scanner.l
+(2000/04/26 - uzi) Changes in preparation of autoconf/automake setup
+(2000/04/26 - uzi) Added k to terse args in cscope man page
+(2000/04/25 - petr) Added h to terse args in cscope man page
+(2000/04/25 - petr) Fixed build break with flex
+(2000/04/25 - petr) Added better support for non-flex lex
+(2000/04/22 - uzi) Added -h option, long usage help screen.
+(2000/04/22 - uzi) Added -c and -k support to cscope.files config file.
+(2000/04/22 - uzi) Added Makefile for Solaris and support for Delete key
+(2000/04/21 - hops) Changes for osr5 and uw7 builds, add contrib dir
+(2000/04/21 - petr) Created new build directory with system specific makefiles
+(2000/04/20 - uzi) -k kernel option and code clean up (from K&R C to ANSI C)
+(2000/04/20 - edgar) prevention of cscope.out corruption and correct dboffset calulation
+(2000/04/20 - martin) Use 'env LC_ALL=C sort' rather than 'LC_ALL=C sort' for sorting
+(2000/04/19 - petr) Added README/NEWS/AUTHORS files
+(2000/04/19 - jens) Non-preformatted man page
+(2000/04/19 - petr) Make sure install directory exists with make install
+(2000/04/19 - petr) Make sure temporary directory exists
+(2000/04/18 - petr) Remove temporary buffer
+(2000/04/18 - garyp) Support for .cc and .hh files
+(2000/04/17 - petr) Initial OpenSource release. Initial Linux port

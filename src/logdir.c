@@ -42,15 +42,16 @@
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
-#define	BUFSIZ	160
+#include "global.h"
 
-static char const rcsid[] = "$Id$";
+#define	OURBUFSIZ	160	/* renamed: avoid conflict with <stdio.h> */
 
-static char line[BUFSIZ+1];
+static char const rcsid[] = "$Id: logdir.c,v 1.3 2000/05/03 22:02:10 petr Exp $";
+
+static char line[OURBUFSIZ+1];
 
 static char *
-field(p)
-register char *p;
+nextfield(char *p)
 {
 	while (*p && *p != ':')
 		++p;
@@ -59,11 +60,10 @@ register char *p;
 }
 
 char *
-logdir(name)
-char *name;
+logdir(char *name)
 {
-	register char	*p;
-	register int	i, j;
+	char	*p;
+	int	i, j;
 	int	pwf;
 	
 	/* attempt to open the password file */
@@ -73,7 +73,7 @@ char *name;
 	/* find the matching password entry */
 	do {
 		/* get the next line in the password file */
-		i = read(pwf, line, BUFSIZ);
+		i = read(pwf, line, OURBUFSIZ);
 		for (j = 0; j < i; j++)
 			if (line[j] == '\n')
 				break;
@@ -82,18 +82,18 @@ char *name;
 			return(0);
 		line[++j] = 0;			/* terminate the line */
 		(void) lseek(pwf, (long) (j - i), 1);	/* point at the next line */
-		p = field(line);		/* get the logname */
+		p = nextfield(line);		/* get the logname */
 	} while (*name != *line ||	/* fast pretest */
 	    strcmp(name, line) != 0);
 	(void) close(pwf);
 	
 	/* skip the intervening fields */
-	p = field(p);
-	p = field(p);
-	p = field(p);
-	p = field(p);
+	p = nextfield(p);
+	p = nextfield(p);
+	p = nextfield(p);
+	p = nextfield(p);
 	
 	/* return the login directory */
-	(void) field(p);
+	(void) nextfield(p);
 	return(p);
 }

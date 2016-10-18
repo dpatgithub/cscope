@@ -1,0 +1,16 @@
+
+This program's build procedure is fairly standard...
+
+./configure
+make
+make install
+
+Options to the configure script are up to you... run
+./configure --help
+for details.
+
+Please report build problems at:
+
+http://sourceforge.net/bugs/?func=addbug&group_id=4664
+
+(yes, even non-Linux problems).

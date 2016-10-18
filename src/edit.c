@@ -38,13 +38,12 @@
 #include <curses.h>
 #include "global.h"
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: edit.c,v 1.2 2000/05/03 22:02:10 petr Exp $";
 
 /* edit this displayed reference */
 
 void
-editref(i)
-int	i;
+editref(int i)
 {
 	char	file[PATHLEN + 1];	/* file name */
 	char	linenum[NUMLEN + 1];	/* line number */
@@ -66,7 +65,7 @@ int	i;
 /* edit all references */
 
 void
-editall()
+editall(void)
 {
 	char	file[PATHLEN + 1];	/* file name */
 	char	linenum[NUMLEN + 1];	/* line number */
@@ -95,9 +94,7 @@ editall()
 /* call the editor */
 
 void
-edit(file, linenum)
-char	*file;
-char	*linenum;
+edit(char *file, char *linenum)
 {
 	char	msg[MSGLEN + 1];	/* message */
 	char	plusnum[NUMLEN + 2];	/* line number option */
@@ -113,10 +110,10 @@ char	*linenum;
 		
 		/* get it to pause after displaying a file smaller than the screen
 		   length */
-		(void) execute(editor, editor, plusnum, file, "/dev/null", (char *) 0);
+		(void) execute(editor, editor, plusnum, file, "/dev/null", NULL);
 	}
 	else {
-		(void) execute(editor, editor, plusnum, file, (char *) 0);
+		(void) execute(editor, editor, plusnum, file, NULL);
 	}
 	clear();	/* redisplay screen */
 }
@@ -124,8 +121,7 @@ char	*linenum;
 /* if requested, prepend a path to a relative file name */
 
 char *
-filepath(file)
-char	*file;
+filepath(char *file)
 {
 	static	char	path[PATHLEN + 1];
 	

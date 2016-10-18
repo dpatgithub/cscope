@@ -44,10 +44,10 @@
 */
 #define MAXHELP	50	/* maximum number of help strings */
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: help.c,v 1.1 2000/04/27 16:33:47 petr Exp $";
 
 void
-help()
+help(void)
 {
 	char	**ep, *s, **tp, *text[MAXHELP];	
 	int	ln;

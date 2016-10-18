@@ -36,13 +36,15 @@
  *	directory searching functions
  */
 
+#include <stdlib.h>
 #include <dirent.h>
+#include <stdlib.h>
 #include <sys/types.h>	/* needed by stat.h */
 #include <sys/stat.h>	/* stat */
 #include "global.h"
 #include "vp.h"		/* vpdirs and vpndirs */
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: dir.c,v 1.5 2000/05/03 22:02:10 petr Exp $";
 
 #define	DIRSEPS	" ,:"	/* directory list separators */
 #define	DIRINC	10	/* directory list size increment */
@@ -69,13 +71,17 @@ static	struct	listitem {	/* source file names without view pathing */
 	struct	listitem *next;
 } *srcnames[HASHMOD];
 
-BOOL	issrcfile();
-void	addsrcdir(), addincdir();
+BOOL	issrcfile(char *file);
+void	addsrcdir(char *dir);
+void	addincdir(char *name, char *path);
+
+static void	scan_dir(const char* dirfile, BOOL recurse);
+				/* make the source file list */
 
 /* make the view source directory list */
 
 void
-makevpsrcdirs()
+makevpsrcdirs(void)
 {
 	int	i;
 
@@ -98,7 +104,7 @@ makevpsrcdirs()
 	}
 	/* create the source directory list */
 	msrcdirs = nsrcdirs + DIRINC;
-	srcdirs = (char **) mymalloc(msrcdirs * sizeof(char *));
+	srcdirs = mymalloc(msrcdirs * sizeof(char *));
 	*srcdirs = ".";	/* first source dir is always current dir */
 	for (i = 1; i < vpndirs; ++i) {
 		srcdirs[i] = vpdirs[i];
@@ -110,12 +116,11 @@ makevpsrcdirs()
 /* add a source directory to the list for each view path source directory */
 
 void
-sourcedir(dirlist)
-char	*dirlist;
+sourcedir(char *dirlist)
 {
 	char	path[PATHLEN + 1];
-	register char	*dir;
-	register int	i;
+	char	*dir;
+	int	i;
 
 	makevpsrcdirs();		/* make the view source directory list */
 	dirlist = stralloc(dirlist);	/* don't change environment variable text */
@@ -135,15 +140,15 @@ char	*dirlist;
 				addsrcdir(path);
 			}
 		}
-		dir = strtok((char *) NULL, DIRSEPS);
+		dir = strtok(NULL, DIRSEPS);
 	}
+	free(dirlist);		/* HBB 20000421: avoid memory leaks */
 }
 
 /* add a source directory to the list */
 
 void
-addsrcdir(dir)
-char	*dir;
+addsrcdir(char *dir)
 {
 	struct	stat	statstruct;
 
@@ -154,21 +159,32 @@ char	*dir;
 		/* note: there already is a source directory list */
 		if (nsrcdirs == msrcdirs) {
 			msrcdirs += DIRINC;
-			srcdirs = (char **) myrealloc((char *) srcdirs, msrcdirs * sizeof(char *));
+			srcdirs = myrealloc(srcdirs, msrcdirs * sizeof(char *));
 		}
 		srcdirs[nsrcdirs++] = stralloc(dir);
 	}
 }
 
+/* HBB 20000421: new function, for avoiding leaks */
+/* free list of src directories */
+void
+freesrclist()
+{
+	if (!srcdirs)
+		return;
+	while(nsrcdirs>1)
+		free(srcdirs[--nsrcdirs]);
+	free(srcdirs);
+}
+
 /* add a #include directory to the list for each view path source directory */
 
 void
-includedir(dirlist)
-char	*dirlist;
+includedir(char *dirlist)
 {
 	char	path[PATHLEN + 1];
-	register char	*dir;
-	register int	i;
+	char	*dir;
+	int	i;
 
 	makevpsrcdirs();		/* make the view source directory list */
 	dirlist = stralloc(dirlist);	/* don't change environment variable text */
@@ -188,16 +204,15 @@ char	*dirlist;
 				addincdir(dir, path);
 			}
 		}
-		dir = strtok((char *) NULL, DIRSEPS);
+		dir = strtok(NULL, DIRSEPS);
 	}
+	free(dirlist);			/* HBB 20000421: avoid leaks */
 }
 
 /* add a #include directory to the list */
 
 void
-addincdir(name, path)
-char	*name;
-char	*path;
+addincdir(char *name, char *path)
 {
 	struct	stat	statstruct;
 
@@ -205,14 +220,14 @@ char	*path;
 	if (stat(compath(path), &statstruct) == 0 && 
 	    (statstruct.st_mode & S_IFDIR)) {
 		if (incdirs == NULL) {
-			incdirs = (char **) mymalloc(mincdirs * sizeof(char *));
-			incnames = (char **) mymalloc(mincdirs * sizeof(char *));
+			incdirs = mymalloc(mincdirs * sizeof(char *));
+			incnames = mymalloc(mincdirs * sizeof(char *));
 		}
 		else if (nincdirs == mincdirs) {
 			mincdirs += DIRINC;
-			incdirs = (char **) myrealloc((char *) incdirs, 
+			incdirs = myrealloc(incdirs, 
 				mincdirs * sizeof(char *));
-			incnames = (char **) myrealloc((char *) incnames, 
+			incnames = myrealloc(incnames, 
 				mincdirs * sizeof(char *));
 		}
 		incdirs[nincdirs] = stralloc(path);
@@ -220,20 +235,34 @@ char	*path;
 	}
 }
 
+/* HBB 2000421: new function, for avoiding memory leaks */
+/* free the list of include files, if wanted */
+
+void
+freeinclist()
+{
+	if (!incdirs)	
+		return;
+	while(nincdirs>0) {
+		free(incdirs[--nincdirs]);
+		free(incnames[nincdirs]);
+	}
+	free(incdirs);
+	free(incnames);
+}
+
 /* make the source file list */
 
 void
-makefilelist()
+makefilelist(void)
 {
 	static	BOOL	firstbuild = YES;	/* first time through */
-	DIR	*dirfile;		/* directory file descriptor */
-	struct	dirent	*entry;		/* directory entry pointer */
 	FILE	*names;			/* name file pointer */
 	char	dir[PATHLEN + 1];
 	char	path[PATHLEN + 1];
-	register char	*file;
-	register char	*s;
-	register int	i;
+	char	*file;
+	char	*s;
+	int	i;
 
 	makevpsrcdirs();	/* make the view source directory list */
 
@@ -271,6 +300,12 @@ makefilelist()
 			if (*path == '-') {	/* if an option */
 				i = path[1];
 				switch (i) {
+				case 'c':	/* ASCII characters only in crossref */
+					compress = NO;
+					break;
+				case 'k':	/* ignore DFLT_INCDIR */
+					kernelmode = YES;
+					break;
 				case 'q':	/* quick search */
 					invertedindex = YES;
 					break;
@@ -301,7 +336,7 @@ makefilelist()
 					}
 					break;
 				default:
-					(void) fprintf(stderr, "cscope: only -I, -p, and -T options can be in file %s\n", 
+					(void) fprintf(stderr, "cscope: only -I, -c, -k, -p, and -T options can be in file %s\n", 
 						namefile);
 				}
 			}
@@ -320,34 +355,50 @@ makefilelist()
 	}
 	/* make a list of all the source files in the directories */
 	for (i = 0; i < nsrcdirs; ++i) {
+		scan_dir(srcdirs[i], recurse_dir);
+	}
+}
 
-		/* open the directory */
-		/* note: failure is allowed because SOURCEDIRS may not exist */
-		if ((dirfile = opendir(srcdirs[i])) != NULL) {
+/* scan a directory (recursively?) for source files */
+static void
+scan_dir(const char* adir, BOOL recurse_dir) {
+	DIR	*dirfile;       
 
-			/* read each entry in the directory */
-			while ((entry = readdir(dirfile)) != NULL) {
-				
-				/* if it is a source file not already found */
-				file = entry->d_name;
-				if (entry->d_ino != 0 && issrcfile(file) &&
-				    infilelist(file) == NO) {
+	if( (dirfile = opendir(adir)) != NULL ) {
+		struct dirent* entry;
+		char  path[PATHLEN + 1];
+		char* file;
 
-					/* add it to the list */
-					(void) sprintf(path, "%s/%s", srcdirs[i], file);
-					addsrcfile(file, path);
+		while( (entry = readdir(dirfile)) != NULL ) { 
+			if( (strcmp(".",entry->d_name) != 0)
+				&& (strcmp("..",entry->d_name) != 0) ) {
+				struct stat buf;
+
+				sprintf(path,"%s/%s",adir,entry->d_name);
+
+				if(stat(path,&buf) == 0) {
+					file = entry->d_name;
+
+					if( recurse_dir
+						&& (buf.st_mode & S_IFDIR) ) {
+						scan_dir(path, recurse_dir);
+					}
+					else if (entry->d_ino != 0
+						&& issrcfile(path)
+						&& infilelist(file) == NO) {
+						addsrcfile(file, path);
+					}
 				}
 			}
-			closedir(dirfile);
 		}
+		closedir(dirfile);
 	}
 }
 
 /* see if this is a source file */
 
 BOOL
-issrcfile(file)
-char	*file;
+issrcfile(char *file)
 {
 	struct	stat	statstruct;
 	char	*s;
@@ -377,15 +428,29 @@ char	*file;
 			}
 		}
 		else if (s[2] == '\0') {	/* 2 character suffix */
-			if (*s == 'b' && s[1] == 'p' ||	/* breakpoint listing */
-			    *s == 'q' &&
-				(s[1] == 'c' || s[1] == 'h') || /* Ingres */
-			    *s == 's' && s[1] == 'd') {	/* SDL */
+			if ((*s == 'b' && s[1] == 'p') ||	/* breakpoint listing */
+			    (*s == 'q' &&
+				(s[1] == 'c' || s[1] == 'h')) || /* Ingres */
+			    (*s == 's' && s[1] == 'd') || /* SDL */
+			    (*s == 'c' && s[1] == 'c') || /* C++ source */
+			    (*s == 'h' && s[1] == 'h')) { /* C++ header */
 			
 				/* some directories have 2 character
 				   suffixes so make sure it is a file */
 				if (stat(file, &statstruct) == 0 && 
 				    (statstruct.st_mode & S_IFREG)) {
+					return(YES);
+				}
+			}
+		}
+		else if( s[3] == '\0' ) { /* 3 char suffix */
+			if( 
+			   (*s == 't' && s[1] == 'c' && s[2] == 'c' ) ||
+						/* C++ template source */
+			   0) {
+				/* make sure it is a file */
+				if (stat(file, &statstruct) == 0 && 
+					(statstruct.st_mode & S_IFREG)) {
 					return(YES);
 				}
 			}
@@ -397,9 +462,7 @@ char	*file;
 /* add an include file to the source file list */
 
 void
-incfile(file, type)
-char	*file;
-char	type;
+incfile(char *file, char *type)
 {
 	char	name[PATHLEN + 1];
 	char	path[PATHLEN + 1];
@@ -411,7 +474,7 @@ char	type;
 		return;
 	}
 	/* look in current directory if it was #include "file" */
-	if (type == '"' && (s = inviewpath(file)) != NULL) {
+	if (type[0] == '"' && (s = inviewpath(file)) != NULL) {
 		addsrcfile(file, s);
 	}
 	else {
@@ -436,10 +499,9 @@ char	type;
 /* see if the file is already in the list */
 
 BOOL
-infilelist(file)
-char	*file;
+infilelist(char *file)
 {
-	register struct	listitem *p;
+	struct	listitem *p;
 	
 	for (p = srcnames[hash(compath(file)) % HASHMOD]; p != NULL; p = p->next) {
 		if (strequal(file, p->text)) {
@@ -452,8 +514,7 @@ char	*file;
 /* search for the file in the view path */
 
 char *
-inviewpath(file)
-char	*file;
+inviewpath(char *file)
 {
 	static	char	path[PATHLEN + 1];
 	int	i;
@@ -479,9 +540,7 @@ char	*file;
 /* add a source file to the list */
 
 void
-addsrcfile(name, path)
-char	*name;
-char	*path;
+addsrcfile(char *name, char *path)
 {
 	struct	listitem *p;
 	int	i;
@@ -489,11 +548,11 @@ char	*path;
 	/* make sure there is room for the file */
 	if (nsrcfiles == msrcfiles) {
 		msrcfiles += SRCINC;
-		srcfiles = (char **) myrealloc((char *) srcfiles, msrcfiles * sizeof(char *));
+		srcfiles = myrealloc(srcfiles, msrcfiles * sizeof(char *));
 	}
 	/* add the file to the list */
 	srcfiles[nsrcfiles++] = stralloc(compath(path));
-	p = (struct listitem *) mymalloc(sizeof(struct listitem));
+	p = mymalloc(sizeof(struct listitem));
 	p->text = stralloc(compath(name));
 	i = hash(p->text) % HASHMOD;
 	p->next = srcnames[i];
@@ -503,18 +562,33 @@ char	*path;
 /* free the memory allocated for the source file list */
 
 void
-freefilelist()
+freefilelist(void)
 {
-	register struct	listitem *p, *nextp;
-	register int	i;
-	
-	while (nsrcfiles > 0) {
-		free(srcfiles[--nsrcfiles]);
+	struct	listitem *p, *nextp;
+	int	i;
+
+	/* if '-d' option is used a string space block is allocated */	
+	if (isuptodate == NO) {
+		while (nsrcfiles > 0) {
+			free (srcfiles[--nsrcfiles]);
+		}
 	}
+	else {
+		/* for '-d' option free the string space block */
+		free (srcfiles[0]);
+		nsrcfiles = 0;
+	}
+
+	free (srcfiles);     /* HBB 20000421: avoid leak */
+	msrcfiles = 0;
+	srcfiles=0;
+	
 	for (i = 0; i < HASHMOD; ++i) {
 		for (p = srcnames[i]; p != NULL; p = nextp) {
+			/* HBB 20000421: avoid memory leak */
+			free(p->text);
 			nextp = p->next;
-			free((char *) p);
+			free(p);
 		}
 		srcnames[i] = NULL;
 	}

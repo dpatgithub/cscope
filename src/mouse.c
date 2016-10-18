@@ -45,7 +45,7 @@ BOOL	unixpcmouse = NO;	/* running with a mouse on the Unix PC? */
 static int uw_hs, uw_vs;	/* character height and width */
 #endif
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: mouse.c,v 1.3 2000/05/03 22:02:10 petr Exp $";
 
 typedef	struct {			/* menu */
 	char	*text;
@@ -53,38 +53,39 @@ typedef	struct {			/* menu */
 } MENU;
 
 static	MENU	mainmenu[] = {		/* main menu */
-	"Send",		"##\033s##\r",
-	"Repeat",	"\031",
-	"Edit All",	"\05",
-	"Rebuild",	"\022",
-	"Shell",	"!",
-	"Redraw",	"\f",
-	"Help",		"?",
-	"Exit",		"\04",
-	NULL,		NULL
+	{"Send",	"##\033s##\r"},
+	{"Repeat",	"\031"},
+	{"Edit All",	"\05"},
+	{"Rebuild",	"\022"},
+	{"Shell",	"!"},
+	{"Redraw",	"\f"},
+	{"Help",	"?"},
+	{"Exit",	"\04"},
+	{NULL,		NULL}
 };
 
 static	MENU	changemenu[] = {	/* change mode menu */
-	"Mark Screen",	"*",
-	"Mark All",	"a",
-	"Change",	"\04",
-	"No Change",	"\033",
-	"Shell",	"!",
-	"Redraw",	"\f",
-	"Help",		"?",
-	NULL,		NULL
+	{"Mark Screen",	"*"},
+	{"Mark All",	"a"},
+	{"Change",	"\04"},
+	{"No Change",	"\033"},
+	{"Shell",	"!"},
+	{"Redraw",	"\f"},
+	{"Help",	"?"},
+	{NULL,		NULL}
 };
 
 static	MENU	*loaded;		/* menu loaded */
 static	BOOL	emacsviterm = NO;	/* terminal type */
 
-static	void	loadmenu();
-static	int	getcoordinate(), getpercent();
+static	void	loadmenu(MENU *menu);
+static	int	getcoordinate(void);
+static	int	getpercent(void);
 
 /* see if there is a mouse interface */
 
 void
-mouseinit()
+mouseinit(void)
 {
 	char	*term;
 	char	*mygetenv();
@@ -151,7 +152,7 @@ mouseinit()
 /* load the correct mouse menu */
 
 void
-mousemenu()
+mousemenu(void)
 {
 	if (mouse == YES) {
 		if (changing == YES) {
@@ -166,10 +167,9 @@ mousemenu()
 /* download a menu */
 
 static void
-loadmenu(menu)
-MENU	*menu;
+loadmenu(MENU *menu)
 {
-	register int	i;
+	int	i;
 
 	if (emacsviterm == YES) {
 		mousereinit();
@@ -186,8 +186,9 @@ MENU	*menu;
 		(void) printf("\033[6;1X\033[9;1X");
 		for (i = 0; menu[i].text != NULL; ++i) {
 			len = strlen(menu[i].text);
-			(void) printf("\033[%d;%dx%s%s", len, len + strlen(menu[i].value), 
-				menu[i].text, menu[i].value);
+			(void) printf("\033[%d;%dx%s%s", len,
+				      (int) (len + strlen(menu[i].value)), 
+				      menu[i].text, menu[i].value);
 		}
 		loaded = menu;
 	}
@@ -197,7 +198,7 @@ MENU	*menu;
 /* reinitialize the mouse in case curses changed the attributes */
 
 void
-mousereinit()
+mousereinit(void)
 {
 	if (emacsviterm == YES) {
 
@@ -211,9 +212,9 @@ mousereinit()
 /* restore the mouse attributes */
 
 void
-mousecleanup()
+mousecleanup(void)
 {
-	register int	i;
+	int	i;
 
 	if (loaded != NULL) {	/* only true for myx */
 		
@@ -229,10 +230,9 @@ mousecleanup()
 /* draw the scrollbar */
 
 void
-drawscrollbar(top, bot)
-int top, bot;
+drawscrollbar(int top, int bot)
 {
-	register p1, p2;
+	int p1, p2;
 
 	if (emacsviterm == YES) {
 		if (bot > top) {
@@ -262,7 +262,7 @@ int top, bot;
 /* get the mouse information */
 
 MOUSE *
-getmouseaction(leading_char)
+getmouseaction(char leading_char)
 {
 	static	MOUSE	m;
 
@@ -400,9 +400,9 @@ getmouseaction(leading_char)
 /* get a row or column coordinate from a mouse button click or sweep */
 
 static int
-getcoordinate()
+getcoordinate(void)
 {
-	register int  c, next;
+	int  c, next;
 
 	c = mygetch();
 	next = 0;
@@ -419,9 +419,9 @@ getcoordinate()
 /* get a percentage */
 
 static int
-getpercent()
+getpercent(void)
 {
-	register int c;
+	int c;
 
 	c = mygetch();
 	if (c < 16) {

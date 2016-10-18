@@ -37,8 +37,9 @@
  */
 
 #include "global.h"
+#include <stdlib.h>
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: crossref.c,v 1.4 2000/05/05 17:35:00 broeker Exp $";
 
 extern	int	myylineno;
 
@@ -70,27 +71,27 @@ static	char	*filename;	/* file name for warning messages */
 static	long	fcnoffset;	/* function name database offset */
 static	long	macrooffset;	/* macro name database offset */
 static	int	msymbols = SYMBOLINC;	/* maximum number of symbols */
-static	struct	symbol {	/* symbol data */
+struct	symbol {	/* symbol data */
 	int	type;		/* type */
 	int	first;		/* index of first character in text */
 	int	last;		/* index of last+1 character in text */
 	int	length;		/* symbol length */
 	int	fcn_level;	/* function level of the symbol */
-} *symbol;
+};
+static struct symbol *symbol;
 
-void	putcrossref();
-
-static	void	savesymbol();
+void	putcrossref(void);
+static	void	savesymbol(int token, int num);
 
 void
-crossref(srcfile)
-char	*srcfile;
+crossref(char *srcfile)
 {
-	register int	i;
-	register int	length;		/* symbol length */
+	int	i;
+	int	length;		/* symbol length */
 	int	entry_no;		/* function level of the symbol */
 	int	token;			/* current token */
 
+	entry_no = 0;
 	/* open the source file */
 	if ((yyin = myfopen(srcfile, "r")) == NULL) {
 		cannotopen(srcfile);
@@ -107,7 +108,7 @@ char	*srcfile;
 	fcnoffset = macrooffset = 0;
 	symbols = 0;
 	if (symbol == NULL) {
-		symbol = (struct symbol *) mymalloc(msymbols * sizeof(struct symbol));
+		symbol = mymalloc(msymbols * sizeof(struct symbol));
 	}
 	for (;;) {
 		
@@ -170,14 +171,12 @@ char	*srcfile;
 /* save the symbol in the list */
 
 static void
-savesymbol(token, num)
-int	token;
-int 	num;
+savesymbol(int token, int num)
 {
 	/* make sure there is room for the symbol */
 	if (symbols == msymbols) {
 		msymbols += SYMBOLINC;
-		symbol = (struct symbol *) myrealloc((char *) symbol,
+		symbol = myrealloc(symbol,
 		    msymbols * sizeof(struct symbol));
 	}
 	/* save the symbol */
@@ -192,8 +191,7 @@ int 	num;
 /* output the file name */
 
 void
-putfilename(srcfile)
-char	*srcfile;
+putfilename(char *srcfile)
 {
 	/* check for file system out of space */
 	/* note: dbputc is not used to avoid lint complaint */
@@ -212,18 +210,18 @@ char	*srcfile;
 /* output the symbols and source line */
 
 void
-putcrossref()
+putcrossref(void)
 {
-	register int	i, j;
-	register unsigned c;
-	register BOOL	blank;		/* blank indicator */
-	register int	symput = 0;	/* symbols output */
+	int	i, j;
+	unsigned c;
+	BOOL	blank;		/* blank indicator */
+	int	symput = 0;	/* symbols output */
 	int	type;
 
 	/* output the source line */
 	lineoffset = dboffset;
 	dboffset += fprintf(newrefs, "%d ", lineno);
-#if Linux || BSD && !sun
+#if BSD && !sun
 	dboffset = ftell(newrefs); /* fprintf doesn't return chars written */
 #endif
 	blank = NO;
@@ -294,7 +292,7 @@ putcrossref()
 					++i;
 				}
 				/* skip the rest of the keyword */
-				while (isalpha(yytext[i])) {
+				while (isalpha((unsigned char)yytext[i])) {
 					++i;
 				}
 				/* skip space after certain keywords */
@@ -328,17 +326,26 @@ putcrossref()
 	symbols = 0;
 }
 
+/* HBB 20000421: new function, for avoiding memory leaks */
+/* free the cross reference symbol table */
+void
+freecrossref()
+{
+	if (symbol)
+		free(symbol);
+	symbol = NULL;
+	symbols = 0;
+}
+
 /* output the inverted index posting */
 
 void
-putposting(term, type)
-char	*term;
-int	type;
+putposting(char *term, int type)
 {
-	register long	i, n;
-	register char	*s;
-	register int	digits;		/* digits output */
-	register long	offset;		/* function/macro database offset */
+	long	i, n;
+	char	*s;
+	int	digits;		/* digits output */
+	long	offset;		/* function/macro database offset */
 	char	buf[11];		/* number buffer */
 
 	/* get the function or macro name offset */
@@ -406,11 +413,10 @@ int	type;
 /* put the string into the new database */
 
 void
-writestring(s)
-register char	*s;
+writestring(char *s)
 {
-	register unsigned c;
-	register int	i;
+	unsigned c;
+	int	i;
 	
 	/* compress digraphs */
 	for (i = 0; (c = s[i]) != '\0'; ++i) {
@@ -425,8 +431,7 @@ register char	*s;
 /* print a warning message with the file name and line number */
 
 void
-warning(text)
-char	*text;
+warning(char *text)
 {
 	
 	(void) fprintf(stderr, "cscope: \"%s\", line %d: warning: %s\n", filename, 

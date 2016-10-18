@@ -38,6 +38,7 @@
 
 #include "global.h"
 #include "version.h"	/* FILEVERSION and FIXVERSION */
+#include <stdlib.h>	/* atoi */
 #include <curses.h>	/* stdscr and TRUE */
 #include <fcntl.h>	/* O_RDONLY */
 #include <sys/types.h>	/* needed by stat.h */
@@ -46,12 +47,12 @@
 /* defaults for unset environment variables */
 #define	EDITOR	"vi"
 #define	SHELL	"sh"
-#define TMPDIR	"/usr/tmp"
+#define TMPDIR	"/tmp"
 #ifndef DFLT_INCDIR
 #define DFLT_INCDIR "/usr/include"
 #endif
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: main.c,v 1.7 2000/05/05 17:35:00 broeker Exp $";
 
 /* note: these digraph character frequencies were calculated from possible 
    printable digraphs in the cross-reference for the C compiler */
@@ -77,20 +78,22 @@ BOOL	incurses;		/* in curses */
 INVCONTROL invcontrol;		/* inverted file control structure */
 BOOL	invertedindex;		/* the database has an inverted index */
 BOOL	isuptodate;		/* consider the crossref up-to-date */
+BOOL	kernelmode;		/* don't use DFLT_INCDIR - bad for kernels */
 BOOL	linemode;		/* use line oriented user interface */
+BOOL	recurse_dir = NO;	/* recurse dirs when searching for src files */
 char	*namefile;		/* file of file names */
-char	*newinvname;		/* new inverted index file name */
-char	*newinvpost;		/* new inverted index postings file name */
+static char *newinvname;	/* new inverted index file name */
+static char *newinvpost;	/* new inverted index postings file name */
 char	*newreffile;		/* new cross-reference file name */
 FILE	*newrefs;		/* new cross-reference */
 BOOL	ogs;			/* display OGS book and subsystem names */
 FILE	*postings;		/* new inverted index postings */
 char	*prependpath;		/* prepend path to file names */
 FILE	*refsfound;		/* references found file */
+BOOL	select_large = NO;	/* enable more than 9 select lines */
 int	symrefs = -1;		/* cross-reference file */
 char	temp1[PATHLEN + 1];	/* temporary file name */
 char	temp2[PATHLEN + 1];	/* temporary file name */
-char	temp3[PATHLEN*4];	/* temporary file name */
 long	totalterms;		/* total inverted index terms */
 BOOL	trun_syms;		/* truncate symbols to 8 characters */
 
@@ -105,34 +108,35 @@ static	char	*reflines;		/* symbol reference lines file */
 static	char	*tmpdir;		/* temporary directory */
 static	BOOL	unconditional;		/* unconditionally build database */
 
-BOOL	samelist();
-char	*getoldfile();
-int	compare();			/* needed for qsort call */
-void	copydata();
-void	copyinverted();
-void	initcompress();
-void	movefile();
-void	opendatabase();
-void	putheader();
-void	putinclude();
-void	putlist();
-void	skiplist();
-
-static	void	build();
+BOOL	samelist(FILE *oldrefs, char **names, int count);
+char	*getoldfile(void);
+int	compare(const void *s1, const void *s2); /* needed for qsort call */
+void	copydata(void);
+void	copyinverted(void);
+void	initcompress(void);
+void	movefile(char *new, char *old);
+void	opendatabase(void);
+void	putheader(char *dir);
+void	putinclude(char *s);
+void	putlist(char **names, int count);
+void	skiplist(FILE *oldrefs);
+static	void	build(void);
+static	void	usage(void);
+static	void	longusage(void);
 
 extern FILE *yyin, *yyout;
 
-main(argc, argv)
-int	argc;
-char	**argv;
+int
+main(int argc, char **argv)
 {
 	FILE	*names;			/* name file pointer */
 	int	oldnum;			/* number in old cross-ref */
 	char	path[PATHLEN + 1];	/* file path */
-	register FILE	*oldrefs;	/* old cross-reference file */
-	register char	*s;
-	register int	c, i;
+	FILE	*oldrefs;	/* old cross-reference file */
+	char	*s;
+	int	c, i;
 	pid_t	pid;
+	struct stat	stat_buf;
 #if SVR2 && !BSD && !V9 && !u3b2 && !sun
 	void	fixkeypad();
 #endif
@@ -147,7 +151,7 @@ char	**argv;
 		for (s = argv[0] + 1; *s != '\0'; s++) {
 			
 			/* look for an input field number */
-			if (isdigit(*s)) {
+			if (isdigit((unsigned char)*s)) {
 				field = *s - '0';
 				if (field > 8) {
 					field = 8;
@@ -192,6 +196,12 @@ char	**argv;
 			case 'e':	/* suppress ^E prompt between files */
 				editallprompt = NO;
 				break;
+			case 'h':
+				(void) longusage();
+				exit(1);
+			case 'k':	/* ignore DFLT_INCDIR */
+				kernelmode = YES;
+				break;
 			case 'L':
 				onesearch = YES;
 				/* FALLTHROUGH */
@@ -212,6 +222,9 @@ char	**argv;
 				break;
 			case 'U':	/* assume some files have changed */
 				fileschanged = YES;
+				break;
+			case 'R':
+				recurse_dir = YES;
 				break;
 			case 'f':	/* alternate cross-reference file */
 			case 'F':	/* symbol reference lines file */
@@ -273,12 +286,15 @@ char	**argv;
 					break;
 				}
 				goto nextarg;
+			case 't':	/* enable more than 9 select lines */
+				select_large = YES;
+				break;
 			default:
 				(void) fprintf(stderr, "%s: unknown option: -%c\n", argv0, 
 					*s);
 			usage:
-				(void) fprintf(stderr, "Usage:  cscope [-bcCdelLqTuUV] [-f file] [-F file] [-i file] [-I dir] [-s dir]\n");
-				(void) fprintf(stderr, "               [-p number] [-P path] [-[0-8] pattern] [source files]\n");
+				(void) usage();
+				(void) fprintf(stderr, "Try the -h option for more information.\n");
 				exit(1);
 			}
 		}
@@ -291,6 +307,14 @@ lastarg:
 	home = getenv("HOME");
 	shell = mygetenv("SHELL", SHELL);
 	tmpdir = mygetenv("TMPDIR", TMPDIR);
+
+	/* make sure that tmpdir exists */
+	if (stat (tmpdir, &stat_buf))
+	{
+		fprintf (stderr, "cscope: Temporary directory %s does not exist or cannot be accessed\n", tmpdir);
+		fprintf (stderr, "cscope: Please create the directory or set the environment variable\ncscope: TMPDIR to a valid directory\n");
+		exit(1);
+	}
 
 	/* create the temporary file names */
 	pid = getpid();
@@ -333,8 +357,7 @@ lastarg:
 			exit(1);
 		}
 		/* get the crossref file version but skip the current directory */
-		// SCO if (fscanf(oldrefs, "cscope %d %*s", &fileversion) != 1) {
-		if (fscanf(oldrefs, "cscope %d %s", &fileversion, temp3) == 0) {
+		if (fscanf(oldrefs, "cscope %d %*s", &fileversion) != 1) {
 			(void) fprintf(stderr, "cscope: cannot read file version from file %s\n", reffile);
 			exit(1);
 		}
@@ -368,7 +391,7 @@ lastarg:
 			initcompress();
 
 			/* seek to the trailer */
-			if (fscanf(oldrefs, "%d", &traileroffset) != 1) {
+			if (fscanf(oldrefs, "%ld", &traileroffset) != 1) {
 				(void) fprintf(stderr, "cscope: cannot read trailer offset from file %s\n", reffile);
 				exit(1);
 			}
@@ -387,7 +410,7 @@ lastarg:
 			exit(1);
 		}
 		/* get the source file list */
-		srcfiles = (char **) mymalloc(nsrcfiles * sizeof(char *));
+		srcfiles = mymalloc(nsrcfiles * sizeof(char *));
 		if (fileversion >= 9) {
 
 			/* allocate the string space */
@@ -395,7 +418,7 @@ lastarg:
 				(void) fprintf(stderr, "cscope: cannot read string space size from file %s\n", reffile);
 				exit(1);
 			}
-			s = mymalloc((unsigned) oldnum);
+			s = (char *)mymalloc((unsigned) oldnum);
 			(void) getc(oldrefs);	/* skip the newline */
 			
 			/* read the strings */
@@ -413,8 +436,8 @@ lastarg:
 				++s;
 			}
 			/* if there is a file of source file names */
-			if (namefile != NULL && (names = vpfopen(namefile, "r")) != NULL ||
-			    (names = vpfopen(NAMEFILE, "r")) != NULL) {
+			if ((namefile != NULL && (names = vpfopen(namefile, "r")) != NULL)
+			    || (names = vpfopen(NAMEFILE, "r")) != NULL) {
 	
 				/* read any -p option from it */
 				while (fscanf(names, "%s", path) == 1 && *path == '-') {
@@ -457,7 +480,7 @@ lastarg:
 			sourcedir(s);
 		}
 		/* make the source file list */
-		srcfiles = (char **) mymalloc(msrcfiles * sizeof(char *));
+		srcfiles = mymalloc(msrcfiles * sizeof(char *));
 		makefilelist();
 		if (nsrcfiles == 0) {
 			(void) fprintf(stderr, "cscope: no source files found\n");
@@ -467,8 +490,11 @@ lastarg:
 		if ((s = getenv("INCLUDEDIRS")) != NULL) {
 			includedir(s);
 		}
-		/* add /usr/include to the #include directory list */
-		includedir(DFLT_INCDIR);
+		/* add /usr/include to the #include directory list,
+		   but not in kernelmode... kernels tend not to use it. */
+		if (kernelmode == NO) {
+			includedir(DFLT_INCDIR);
+		}
 
 		/* initialize the C keyword table */
 		initsymtab();
@@ -490,7 +516,7 @@ lastarg:
 		initcompress();
 		build();
 		if (buildonly == YES) {
-			exit(0);
+			myexit(0);
 		}
 	}
 	opendatabase();
@@ -639,10 +665,11 @@ lastarg:
 	/* cleanup and exit */
 	myexit(0);
 	/* NOTREACHED */
+	return 0;		/* avoid warning... */
 }
 
 void
-cannotindex()
+cannotindex(void)
 {
 	(void) fprintf(stderr, "cscope: cannot create inverted index; ignoring -q option\n");
 	invertedindex = NO;
@@ -653,8 +680,7 @@ cannotindex()
 }
 
 void
-cannotopen(file)
-char	*file;
+cannotopen(char *file)
 {
 	char	msg[MSGLEN + 1];
 
@@ -663,8 +689,7 @@ char	*file;
 }
 
 void
-cannotwrite(file)
-char	*file;
+cannotwrite(char *file)
 {
 	char	msg[MSGLEN + 1];
 
@@ -677,9 +702,9 @@ char	*file;
 /* set up the digraph character tables for text compression */
 
 void
-initcompress()
+initcompress(void)
 {
-	register int	i;
+	int	i;
 	
 	if (compress == YES) {
 		for (i = 0; i < 16; ++i) {
@@ -694,7 +719,7 @@ initcompress()
 /* open the database */
 
 void
-opendatabase()
+opendatabase(void)
 {
 	if ((symrefs = vpopen(reffile, O_RDONLY)) == -1) {
 		cannotopen(reffile);
@@ -713,7 +738,7 @@ opendatabase()
 /* rebuild the database */
 
 void
-rebuild()
+rebuild(void)
 {
 	(void) close(symrefs);
 	if (invertedindex == YES) {
@@ -734,11 +759,11 @@ rebuild()
 /* build the cross-reference */
 
 static void
-build()
+build(void)
 {
-	register int	i;
-	register FILE	*oldrefs;	/* old cross-reference file */
-	register time_t	reftime;	/* old crossref modification time */
+	int	i;
+	FILE	*oldrefs;	/* old cross-reference file */
+	time_t	reftime;	/* old crossref modification time */
 	char	*file;			/* current file */
 	char	*oldfile;		/* file in old cross-reference */
 	char	newdir[PATHLEN + 1];	/* directory in new cross-reference */
@@ -762,7 +787,7 @@ build()
 		(void) sprintf(newdir, "$HOME%s", currentdir + strlen(home));
 	}
 	/* sort the source file names (needed for rebuilding) */
-	qsort((char *) srcfiles, (unsigned) nsrcfiles, sizeof(char *), compare);
+	qsort(srcfiles, (unsigned) nsrcfiles, sizeof(char *), compare);
 
 	/* if there is an old cross-reference and its current directory matches */
 	/* or this is an unconditional build */
@@ -816,7 +841,7 @@ build()
 				goto outofdate;
 			}
 			/* seek to the trailer */
-			if (fscanf(oldrefs, "%d", &traileroffset) != 1 ||
+			if (fscanf(oldrefs, "%ld", &traileroffset) != 1 ||
 			    fseek(oldrefs, traileroffset, SEEK_SET) == -1) {
 				(void) fprintf(stderr, "cscope: incorrect symbol database file format\n");
 				goto force;
@@ -830,8 +855,7 @@ build()
 		if (samelist(oldrefs, srcdirs, nsrcdirs) == NO ||
 		    samelist(oldrefs, incdirs, nincdirs) == NO ||
 		    fscanf(oldrefs, "%d", &oldnum) != 1 ||	/* get the old number of files */
-		    // SCO fileversion >= 9 && fscanf(oldrefs, "%*s") != 0) {	/* skip the string space size */
-		    fileversion >= 9 && fscanf(oldrefs, "%s", temp3) != 0) {	/* skip the string space size */
+		    (fileversion >= 9 && fscanf(oldrefs, "%*s") != 0)) {	/* skip the string space size */
 			goto outofdate;
 		}
 		/* see if the list of source files is the same and
@@ -899,7 +923,7 @@ build()
 	firstfile = 0;
 	lastfile = nsrcfiles;
 	if (invertedindex == YES) {
-		srcoffset = (long *) mymalloc((nsrcfiles + 1) * sizeof(long));
+		srcoffset = mymalloc((nsrcfiles + 1) * sizeof(long));
 	}
 	for (;;) {
 
@@ -953,11 +977,11 @@ build()
 		firstfile = lastfile;
 		lastfile = nsrcfiles;
 		if (invertedindex == YES) {
-			srcoffset = (long *) myrealloc((char *) srcoffset,
+			srcoffset = myrealloc(srcoffset,
 			    (nsrcfiles + 1) * sizeof(long));
 		}
 		/* sort the included file names */
-		qsort((char *) &srcfiles[firstfile], (unsigned) (lastfile - 
+		qsort(&srcfiles[firstfile], (unsigned) (lastfile - 
 			firstfile), sizeof(char *), compare);
 	}
 	/* add a null file name to the trailing tab */
@@ -985,7 +1009,7 @@ build()
 		}
 		(void) fstat(fileno(postings), &statstruct);
 		(void) fclose(postings);
-		(void) sprintf(sortcommand, "LC_ALL=C sort -y -T %s %s", tmpdir, temp1);
+		(void) sprintf(sortcommand, "env LC_ALL=C sort -y -T %s %s", tmpdir, temp1);
 		if ((postings = mypopen(sortcommand, "r")) == NULL) {
 			(void) fprintf(stderr, "cscope: cannot open pipe to sort command\n");
 			cannotindex();
@@ -1001,7 +1025,7 @@ build()
 			(void) pclose(postings);
 		}
 		(void) unlink(temp1);
-		(void) free((char *) srcoffset);
+		(void) free(srcoffset);
 	}
 	/* rewrite the header with the trailer offset and final option list */
 	rewind(newrefs);
@@ -1022,17 +1046,18 @@ build()
 /* string comparison function for qsort */
 
 int
-compare(s1, s2)
-char	**s1;
-char	**s2;
+compare(const void *arg_s1, const void *arg_s2)
 {
+	const char **s1 = (const char **) arg_s1;
+	const char **s2 = (const char **) arg_s2;
+			
 	return(strcmp(*s1, *s2));
 }
 
 /* get the next file name in the old cross-reference */
 
 char *
-getoldfile()
+getoldfile(void)
 {
 	static	char	file[PATHLEN + 1];	/* file name in old crossref */
 
@@ -1055,8 +1080,7 @@ getoldfile()
    the database trailer offset */
 
 void
-putheader(dir)
-char	*dir;
+putheader(char *dir)
 {
 	dboffset = fprintf(newrefs, "cscope %d %s", FILEVERSION, dir);
 	if (compress == NO) {
@@ -1068,17 +1092,13 @@ char	*dir;
 	else {	/* leave space so if the header is overwritten without -q
 		   because writing the inverted index failed, the header is the
 		   same length */
-		dboffset += fprintf(newrefs, "              ", totalterms);
+		dboffset += fprintf(newrefs, "              ");
 	}
 	if (trun_syms == YES) {
 		dboffset += fprintf(newrefs, " -T");
 	}
 
-#if Linux
-	dboffset += fprintf(newrefs, " %.10ld\n", traileroffset-1);
-#else
 	dboffset += fprintf(newrefs, " %.10ld\n", traileroffset);
-#endif
 
 #if BSD && !sun
 	dboffset = ftell(newrefs); /* fprintf doesn't return chars written */
@@ -1088,11 +1108,9 @@ char	*dir;
 /* put the name list into the cross-reference file */
 
 void
-putlist(names, count)
-register char	**names;
-register int	count;
+putlist(char **names, int count)
 {
-	register int	i, size = 0;
+	int	i, size = 0;
 	
 	(void) fprintf(newrefs, "%d\n", count);
 	if (names == srcfiles) {
@@ -1115,14 +1133,11 @@ register int	count;
 /* see if the name list is the same in the cross-reference file */
 
 BOOL
-samelist(oldrefs, names, count)
-register FILE	*oldrefs;
-register char	**names;
-register int	count;
+samelist(FILE *oldrefs, char **names, int count)
 {
 	char	oldname[PATHLEN + 1];	/* name in old cross-reference */
 	int	oldcount;
-	register int	i;
+	int	i;
 
 	/* see if the number of names is the same */
 	if (fscanf(oldrefs, "%d", &oldcount) != 1 ||
@@ -1142,8 +1157,7 @@ register int	count;
 /* skip the list in the cross-reference file */
 
 void
-skiplist(oldrefs)
-register FILE	*oldrefs;
+skiplist(FILE *oldrefs)
 {
 	int	i;
 	
@@ -1152,8 +1166,7 @@ register FILE	*oldrefs;
 		exit(1);
 	}
 	while (--i >= 0) {
-		// SCO if (fscanf(oldrefs, "%*s") != 0) {
-		if (fscanf(oldrefs, "%s", temp3) == 0) {
+		if (fscanf(oldrefs, "%*s") != 0) {
 			(void) fprintf(stderr, "cscope: cannot read list name from file %s\n", reffile);
 			exit(1);
 		}
@@ -1163,10 +1176,10 @@ register FILE	*oldrefs;
 /* copy this file's symbol data */
 
 void
-copydata()
+copydata(void)
 {
 	char	symbol[PATLEN + 1];
-	register char	*cp;
+	char	*cp;
 
 	setmark('\t');
 	cp = blockp;
@@ -1202,11 +1215,11 @@ copydata()
 /* copy this file's symbol data and output the inverted index postings */
 
 void
-copyinverted()
+copyinverted(void)
 {
-	register char	*cp;
-	register char	c;
-	register int	type;	/* reference type (mark character) */
+	char	*cp;
+	char	c;
+	int	type;	/* reference type (mark character) */
 	char	symbol[PATLEN + 1];
 
 	/* note: this code was expanded in-line for speed */
@@ -1255,7 +1268,7 @@ copyinverted()
 			c = dichar1[(c & 0177) / 8];
 		}
 		/* if this is a symbol */
-		if (isalpha(c) || c == '_') {
+		if (isalpha((unsigned char)c) || c == '_') {
 			blockp = cp;
 			putstring(symbol);
 			type = ' ';
@@ -1274,21 +1287,18 @@ copyinverted()
 /* process the #included file in the old database */
 
 void
-putinclude(s)
-register char	*s;
+putinclude(char *s)
 {
 	dbputc(INCLUDE);
 	skiprefchar();
 	putstring(s);
-	incfile(s + 1, *s);
+	incfile(s + 1, s);
 }
 
 /* replace the old file with the new file */
 
 void
-movefile(new, old)
-char	*new;
-char	*old;
+movefile(char *new, char *old)
 {
 	(void) unlink(old);
 	if (link(new, old) == -1) {
@@ -1307,7 +1317,7 @@ char	*old;
 /* enter curses mode */
 
 void
-entercurses()
+entercurses(void)
 {
 	incurses = YES;
 	(void) nonl();		/* don't translate an output \n to \n\r */
@@ -1315,13 +1325,13 @@ entercurses()
 	(void) noecho();	/* don't echo input characters */
 	(void) clear();		/* clear the screen */
 	mouseinit();		/* initialize any mouse interface */
-	drawscrollbar(topline, nextline, totallines);
+	drawscrollbar(topline, nextline);
 }
 
 /* exit curses mode */
 
 void
-exitcurses()
+exitcurses(void)
 {
 	/* clear the bottom line */
 	(void) move(LINES - 1, 0);
@@ -1337,11 +1347,53 @@ exitcurses()
 	(void) fflush(stdout);
 }
 
+/* normal usage message */
+
+static void
+usage(void)
+{
+	(void) fprintf(stderr, "Usage: cscope [-bcCdehklLqRTuUV] [-f file] [-F file] [-i file] [-I dir] [-s dir]\n");
+	(void) fprintf(stderr, "              [-p number] [-P path] [-[0-8] pattern] [source files]\n");
+}
+
+/* long usage message */
+
+static void
+longusage(void)
+{
+	(void) usage();
+	(void) fprintf(stderr, "\n");
+	(void) fprintf(stderr, "-b            Build the cross-reference only.\n");
+	(void) fprintf(stderr, "-C            Ignore letter case when searching.\n");
+	(void) fprintf(stderr, "-c            Use only ASCII characters in the cross-ref file (don't compress).\n");
+	(void) fprintf(stderr, "-d            Do not update the cross-reference.\n");
+	(void) fprintf(stderr, "-e            Suppress the <Ctrl>-e command prompt between files.\n");
+	(void) fprintf(stderr, "-F symfile    Read symbol reference lines from symfile.\n");
+	(void) fprintf(stderr, "-f reffile    Use reffile as cross-ref file name instead of %s.\n", REFFILE);
+	(void) fprintf(stderr, "-h            This help screen.\n");
+	(void) fprintf(stderr, "-I incdir     Look in incdir for any #include files.\n");
+	(void) fprintf(stderr, "-i namefile   Browse through files listed in namefile, instead of %s\n", NAMEFILE);
+	(void) fprintf(stderr, "-k            Kernel Mode - don't use %s for #include files.\n", DFLT_INCDIR);
+	(void) fprintf(stderr, "-L            Do a single search with line-oriented output.\n");
+	(void) fprintf(stderr, "-l            Line-oriented interface.\n");
+	(void) fprintf(stderr, "-num pattern  Go to input field num (counting from 0) and find pattern.\n");
+	(void) fprintf(stderr, "-P path       Prepend path to relative file names in pre-built cross-ref file.\n");
+	(void) fprintf(stderr, "-p n          Display the last n file path components.\n");
+	(void) fprintf(stderr, "-q            Build an inverted index for quick symbol searching.\n");
+	(void) fprintf(stderr, "-R            Recurse directories for files.\n");
+	(void) fprintf(stderr, "-s dir        Look in dir for additional source  files.\n");
+	(void) fprintf(stderr, "-T            Use only the first eight characters to match against C symbols.\n");
+	(void) fprintf(stderr, "-U            Check file time stamps.\n");
+	(void) fprintf(stderr, "-u            Unconditionally build the cross-reference file.\n");
+	(void) fprintf(stderr, "-V            Print the version number.\n");
+	(void) fprintf(stderr, "\n");
+	(void) fprintf(stderr, "Please see the manpage for more information.\n");
+}
+
 /* cleanup and exit */
 
 void
-myexit(sig)
-int	sig;
+myexit(int sig)
 {
 	/* remove any temporary files */
 	if (temp1[0] != '\0') {
@@ -1356,5 +1408,14 @@ int	sig;
 	if (sig == SIGQUIT) {
 		(void) abort();
 	}
+	/* HBB 20000421: be nice: free allocated data */
+	freefilelist();
+	freeinclist();
+	freesrclist();
+	freecrossref();
+	free(newinvname);
+	free(newinvpost);
+	free(newreffile);
+		
 	exit(sig);
 }

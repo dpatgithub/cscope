@@ -34,14 +34,16 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "library.h"
+#include "global.h"
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: alloc.c,v 1.4 2000/05/09 13:37:10 broeker Exp $";
 
-extern	char	*argv0;	/* command name (must be set in main function) */
+static	void	*alloctest(void *p);
 
-char	*mycalloc(), *mymalloc(), *myrealloc(), *stralloc();
-static	char	*alloctest();
-#ifdef __STDC__
+/* let autoconf find out if <stdlib.h> is available. This test will
+ * succeed more reliably than the defined(__STDC__) one I replaced */
+#if STDC_HEADERS
 #include <stdlib.h>
 # else
 char	*calloc(), *malloc(), *realloc(), *strcpy();
@@ -51,46 +53,39 @@ void	exit();
 /* allocate a string */
 
 char *
-stralloc(s)
-char	*s;
+stralloc(char *s)
 {
 	return(strcpy(mymalloc((int) strlen(s) + 1), s));
 }
 
 /* version of malloc that only returns if successful */
 
-char *
-mymalloc(size)
-int	size;
+void *
+mymalloc(int size)
 {
 	return(alloctest(malloc((unsigned) size)));
 }
 
 /* version of calloc that only returns if successful */
 
-char *
-mycalloc(nelem, size)
-int	nelem;
-int	size;
+void *
+mycalloc(int nelem, int size)
 {
 	return(alloctest(calloc((unsigned) nelem, (unsigned) size)));
 }
 
 /* version of realloc that only returns if successful */
 
-char *
-myrealloc(p, size)
-char	*p;
-int	size;
+void *
+myrealloc(void *p, int size)
 {
 	return(alloctest(realloc(p, (unsigned) size)));
 }
 
 /* check for memory allocation failure */
 
-static	char *
-alloctest(p)
-char	*p;
+static	void *
+alloctest(void *p)
 {
 	if (p == NULL) {
 		(void) fprintf(stderr, "\n%s: out of storage\n", argv0);

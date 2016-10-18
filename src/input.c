@@ -38,8 +38,9 @@
 #include "global.h"
 #include <curses.h>
 #include <setjmp.h>	/* jmp_buf */
+#include <stdlib.h>
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: input.c,v 1.3 2000/05/03 22:02:10 petr Exp $";
 
 static	jmp_buf	env;		/* setjmp/longjmp buffer */
 static	int	prevchar;	/* previous, ungotten character */
@@ -47,9 +48,10 @@ static	int	prevchar;	/* previous, ungotten character */
 /* catch the interrupt signal */
 
 /*ARGSUSED*/
-SIGTYPE
-catchint(sig)
+RETSIGTYPE
+catchint(int sig)
 {
+ 	(void) sig;		/* 'use' it, to avoid a warning */
 	(void) signal(SIGINT, catchint);
 	longjmp(env, 1);
 }
@@ -57,8 +59,7 @@ catchint(sig)
 /* unget a character */
 
 void
-myungetch(c)
-int c;
+myungetch(int c)
 {
 	prevchar = c;
 }
@@ -66,9 +67,9 @@ int c;
 /* get a character from the terminal */
 
 int
-mygetch()
+mygetch(void)
 {
-	SIGTYPE	(*savesig)();		/* old value of signal */
+	RETSIGTYPE	(*savesig)();		/* old value of signal */
 	int	c;
 
 	/* change an interrupt signal to a break key character */
@@ -92,13 +93,10 @@ mygetch()
 
 /* get a line from the terminal in non-canonical mode */
 
-getline(s, size, firstchar, iscaseless)
-register char	s[];
-unsigned size;
-int	firstchar;
-BOOL iscaseless;
+int
+getline(char s[], unsigned size, int firstchar, BOOL iscaseless)
 {
-	register int	c, i = 0;
+	int	c, i = 0;
 	int	j;
 
 	/* if a character already has been typed */
@@ -111,7 +109,8 @@ BOOL iscaseless;
 	}
 	/* until the end of the line is reached */
 	while ((c = mygetch()) != '\r' && c != '\n' && c != KEY_ENTER) {
-		if (c == erasechar() || c == KEY_BACKSPACE) {	/* erase */
+		if (c == erasechar() || c == KEY_BACKSPACE || c == DEL) {
+			/* erase */
 			if (i > 0) {
 				addstr("\b \b");
 				--i;
@@ -162,7 +161,7 @@ BOOL iscaseless;
 /* ask user to enter a character after reading the message */
 
 void
-askforchar()
+askforchar(void)
 {
 	addstr("Type any character to continue: ");
 	(void) mygetch();
@@ -171,7 +170,7 @@ askforchar()
 /* ask user to press the RETURN key after reading the message */
 
 void
-askforreturn()
+askforreturn(void)
 {
 	(void) fprintf(stderr, "Press the RETURN key to continue: ");
 	(void) getchar();
@@ -180,16 +179,13 @@ askforreturn()
 /* expand the ~ and $ shell meta characters in a path */
 
 void
-shellpath(out, limit, in) 
-register char	*out;
-int	limit; 
-register char	*in;
+shellpath(char *out, int limit, char *in) 
 {
-	register char	*lastchar;
+	char	*lastchar;
 	char	*s, *v;
 
 	/* skip leading white space */
-	while (isspace(*in)) {
+	while (isspace((unsigned char)*in)) {
 		++in;
 	}
 	lastchar = out + limit - 1;
@@ -201,7 +197,7 @@ register char	*in;
 
 		/* get the login name */
 		s = out;
-		while (s < lastchar && *in != '/' && *in != '\0' && !isspace(*in)) {
+		while (s < lastchar && *in != '/' && *in != '\0' && !isspace((unsigned char)*in)) {
 			*s++ = *in++;
 		}
 		*s = '\0';
@@ -223,7 +219,7 @@ register char	*in;
 		}
 	}
 	/* get the rest of the path */
-	while (out < lastchar && *in != '\0' && !isspace(*in)) {
+	while (out < lastchar && *in != '\0' && !isspace((unsigned char)*in)) {
 
 		/* look for an environment variable */
 		if (*in == '$') {
@@ -232,7 +228,7 @@ register char	*in;
 			/* get the variable name */
 			s = out;
 			while (s < lastchar && *in != '/' && *in != '\0' &&
-			    !isspace(*in)) {
+			    !isspace((unsigned char)*in)) {
 				*s++ = *in++;
 			}
 			*s = '\0';

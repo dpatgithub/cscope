@@ -43,8 +43,11 @@
 #endif
 #include <curses.h>	/* LINES, COLS */
 #include <setjmp.h>	/* jmp_buf */
+#include <stdarg.h>	/* va_list stuff */
+#include <time.h>
+#include <errno.h>      /* sys_errlist 18-Apr-2000 hops */
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: display.c,v 1.7 2000/05/05 17:35:00 broeker Exp $";
 
 int	booklen;		/* OGS book name display field length */
 int	*displine;		/* screen line of displayed reference */
@@ -77,10 +80,14 @@ static	char	selprompt[] =
 #define	Void	void
 #endif
 
-BOOL	findcalledby();
-char	*findstring();
-Void	findcalling(), findallfcns(), finddef(), findfile(), 
-	findinclude(), findsymbol();
+extern	BOOL	findcalledby(void);
+extern	char	*findstring(void);
+extern	Void	findcalling(void);
+extern	Void	findallfcns(void);
+extern	Void	finddef(void);
+extern	Void	findfile(void);
+extern	Void	findinclude(void);
+extern	Void	findsymbol(void);
 
 typedef char *(*FP)();	/* pointer to function returning a character pointer */
 
@@ -89,22 +96,22 @@ static	struct	{		/* text of input fields */
 	char	*text2;
 	FP	findfcn;
 } fields[FIELDS + 1] = {	/* samuel has a search that is not part of the cscope display */
-	"Find this", "C symbol",			(FP) findsymbol,
-	"Find this", "global definition",		(FP) finddef,
-	"Find", "functions called by this function",	(FP) findcalledby,
-	"Find", "functions calling this function",	(FP) findcalling,
-	"Find this", "text string",			findstring,
-	"Change this", "text string",			findstring,
-	"Find this", "egrep pattern",			findregexp,
-	"Find this", "file",				(FP) findfile,
-	"Find", "files #including this file",		(FP) findinclude,
-	"Find all", "function definitions",		(FP) findallfcns,	/* samuel only */
+	{"Find this", "C symbol",			(FP) findsymbol},
+	{"Find this", "global definition",		(FP) finddef},
+	{"Find", "functions called by this function",	(FP) findcalledby},
+	{"Find", "functions calling this function",	(FP) findcalling},
+	{"Find this", "text string",			findstring},
+	{"Change this", "text string",			findstring},
+	{"Find this", "egrep pattern",			findregexp},
+	{"Find this", "file",				(FP) findfile},
+	{"Find", "files #including this file",		(FP) findinclude},
+	{"Find all", "function definitions",		(FP) findallfcns},	/* samuel only */
 };
 
 /* initialize display parameters */
 
 void
-dispinit()
+dispinit(void)
 {
 	/* calculate the maximum displayed reference lines */
 	lastdispline = FLDLINE - 2;
@@ -113,16 +120,23 @@ dispinit()
 		(void) fprintf(stderr, "%s: screen too small\n", argv0);
 		myexit(1);
 	}
-	if (mouse == NO && mdisprefs > 9) {
+
+	if (mouse == NO && mdisprefs > 9 && select_large == NO) {
 		mdisprefs = 9;
 	}
+	else if (mouse == NO && mdisprefs > 45 && select_large == YES) {
+		/* Limit is 45 select lines */
+		mdisprefs = 45;
+	}
+
 	/* allocate the displayed line array */
-	displine = (int *) mymalloc(mdisprefs * sizeof(int));
+	displine = mymalloc(mdisprefs * sizeof(int));
 }
-/* display a page of the references */
+
+/* display a page of the references */
 
 void
-display()
+display(void)
 {
 	char	*subsystem;		/* OGS subsystem name */
 	char	*book;			/* OGS book name */
@@ -131,8 +145,8 @@ display()
 	char	linenum[NUMLEN + 1];	/* line number */
 	int	screenline;		/* screen line number */
 	int	width;			/* source line display width */
-	register int	i;
-	register char	*s;
+	int	i;
+	char	*s;
 
 	/* see if this is the initial display */
 	erase();
@@ -160,7 +174,7 @@ display()
 			printw("Change \"%s\" to \"%s\"", pattern, newpat);
 		}
 		else {
-			printw("%c%s: %s", toupper(fields[field].text2[0]),
+			printw("%c%s: %s", toupper((unsigned char)fields[field].text2[0]),
 				fields[field].text2 + 1, pattern);
 		}
 		/* display the column headings */
@@ -170,7 +184,12 @@ display()
 			printw("%-*s ", booklen, "Book");
 		}
 		if (dispcomponents > 0) {
-			printw("%-*s ", filelen, "File");
+			if (select_large == YES) {
+				printw(" %-*s ", filelen, "File");
+			}
+			else {
+				printw("%-*s ", filelen, "File");
+			}
 		}
 		if (field == SYMBOL || field == CALLEDBY || field == CALLING) {
 			printw("%-*s ", fcnlen, "Function");
@@ -185,7 +204,12 @@ display()
 			seekline(1);
 		}
 		/* calculate the source text column */
-		width = COLS - numlen - 3;
+		if (select_large == YES) {
+			width = COLS - numlen - 4;
+		}
+		else {
+			width = COLS - numlen - 3;
+		}
 		if (ogs == YES) {
 			width -= subsystemlen + booklen + 2;
 		}
@@ -215,7 +239,25 @@ display()
 				addch(' ');
 			}
 			else {
-				printw("%d", disprefs + 1);
+				/* print numbers and then letters for
+				   selections */
+				if (disprefs < 9) {
+					if (select_large == YES) {
+						printw(" %d", disprefs + 1);
+					}
+					else {
+						printw("%d", disprefs + 1);
+					}
+				}
+				else if (select_large == YES) {
+					if (disprefs < 19) {
+						printw("0%d", disprefs - 9);
+					}
+					else {
+						printw("0%c",
+							disprefs - 19 + 'A');
+					}
+				}
 			}
 			/* display any change mark */
 			if (changing == YES && 
@@ -259,6 +301,7 @@ display()
 			}
 			/* display the source line */
 			s = yytext;
+
 			for (;;) {
 				/* see if the source line will fit */
 				if ((i = strlen(s)) > width) {
@@ -347,12 +390,12 @@ display()
 		move(PRLINE, 0);
 		addstr(selprompt);
 	}
-	drawscrollbar(topline, nextline, totallines);	/* display the scrollbar */
+	drawscrollbar(topline, nextline);	/* display the scrollbar */
 }
 
 /* set the cursor position for the field */
 void
-setfield()
+setfield(void)
 {
 	fldline = FLDLINE + field;
 	fldcolumn = strlen(fields[field].text1) + strlen(fields[field].text2) + 3;
@@ -361,7 +404,7 @@ setfield()
 /* move to the current input field */
 
 void
-atfield()
+atfield(void)
 {
 	move(fldline, fldcolumn);
 }
@@ -369,7 +412,7 @@ atfield()
 /* move to the changing lines prompt */
 
 void
-atchange()
+atchange(void)
 {
 	move(PRLINE, (int) sizeof(selprompt) - 1);
 }
@@ -377,14 +420,15 @@ atchange()
 /* search for the symbol or text pattern */
 
 /*ARGSUSED*/
-SIGTYPE
-jumpback(sig)
+RETSIGTYPE
+jumpback(int sig)
 {
+	(void) sig;		/* 'use' sig, to avoid warning from compiler */
 	longjmp(env, 1);
 }
 
 BOOL
-search()
+search(void)
 {
 	char	*subsystem;		/* OGS subsystem name */
 	char 	*book;			/* OGS book name */
@@ -394,9 +438,9 @@ search()
 	char	*egreperror = NULL;	/* egrep error message */
 	BOOL	funcexist = YES;		/* find "function" error */
 	FINDINIT rc = NOERROR;		/* findinit return code */
-	SIGTYPE	(*savesig)();		/* old value of signal */
+	RETSIGTYPE	(*savesig)();		/* old value of signal */
 	FP	f;			/* searching function */
-	register int	c, i;
+	int	c, i;
 	
 	/* open the references found file for writing */
 	if (writerefsfound() == NO) {
@@ -507,26 +551,38 @@ search()
 	return(YES);
 }
 
-/* display search progress */
+/* display search progress with default custom format */
 
 void
-progress()
+progress(const char *fmt, ...)
 {
+	va_list	ap;
 	static	long	start;
 	long	now;
 	char	msg[MSGLEN + 1];
-	long	time();
 
 	/* save the start time */
 	if (searchcount == 0) {
-		start = time((long *) NULL);
+		start = time(NULL);
 	}
 	/* display the progress every 3 seconds */
-	else if ((now = time((long *) NULL)) - start >= 3) {
-		start = now;
-		(void) sprintf(msg, "%ld of %d files searched", 
-			searchcount, nsrcfiles);
-		if (linemode == NO) postmsg(msg);
+	else if ((now = time(NULL)) - start >= 3) {
+		if (fmt == NULL) {	/* No arguments, print default msg */
+			start = now;
+			(void) sprintf(msg, "%ld of %d files searched", 
+				searchcount, nsrcfiles);
+			if (linemode == NO) postmsg(msg);
+		} else {		/* Arguments, print custom message */
+			va_start(ap, fmt);
+			start = now;
+#ifdef HAVE_VSNPRINTF
+			(void) vsnprintf(msg, MSGLEN + 1, fmt, ap);
+#else
+			(void) vsprintf(msg, fmt, ap);
+#endif
+			if (linemode == NO) postmsg(msg);
+			va_end(ap);
+		}
 	}
 	++searchcount;
 }
@@ -534,17 +590,19 @@ progress()
 /* print error message on system call failure */
 
 void
-myperror(text) 
-char	*text; 
+myperror(char *text) 
 {
-	extern	int	errno, sys_nerr;
 	char	msg[MSGLEN + 1];	/* message */
-	register char	*s;
+	char	*s;
 
 	s = "Unknown error";
+#ifdef HAVE_STRERROR
+        s = strerror(errno);
+#else
 	if (errno < sys_nerr) {
-		s = (char *)sys_errlist[errno];
+		s = sys_errlist[errno];
 	}
+#endif
 	(void) sprintf(msg, "%s: %s", text, s);
 	postmsg(msg);
 }
@@ -553,8 +611,7 @@ char	*text;
 
 /* VARARGS */
 void
-postmsg(msg) 
-char	*msg; 
+postmsg(char *msg) 
 {
 	if (linemode == YES || incurses == NO) {
 		(void) printf("%s\n", msg);
@@ -571,7 +628,7 @@ char	*msg;
 /* clearmsg2 clears the second message line */
 
 void
-clearmsg2() 
+clearmsg2(void)
 {
 	if (linemode == NO) {
 		move(MSGLINE + 1, 0);
@@ -582,8 +639,7 @@ clearmsg2()
 /* postmsg2 clears the second message line and prints the message */
 
 void
-postmsg2(msg) 
-char	*msg; 
+postmsg2(char *msg) 
 {
 	if (linemode == YES) {
 		(void) printf("%s\n", msg);
@@ -596,10 +652,9 @@ char	*msg;
 /* position references found file at specified line */
 
 void
-seekline(line) 
-int	line; 
+seekline(int line) 
 {
-	register int	c;
+	int	c;
 
 	/* verify that there is a references found file */
 	if (refsfound == NULL) {
@@ -620,13 +675,10 @@ int	line;
 /* get the OGS subsystem and book names */
 
 void
-ogsnames(file, subsystem, book)
-char	*file;
-char	**subsystem;
-char	**book;
+ogsnames(char *file, char **subsystem, char **book)
 {
 	static	char	buf[PATHLEN + 1];
-	register char	*s, *slash;
+	char	*s, *slash;
 
 	*subsystem = *book = "";
 	(void) strcpy(buf,file);
@@ -652,12 +704,10 @@ char	**book;
 /* get the requested path components */
 
 char *
-pathcomponents(path, components)
-char	*path;
-int	components;
+pathcomponents(char *path, int components)
 {
 	int	i;
-	register char	*s;
+	char	*s;
 	
 	s = path + strlen(path) - 1;
 	for (i = 0; i < components; ++i) {
@@ -674,7 +724,7 @@ int	components;
 /* open the references found file for writing */
 
 BOOL
-writerefsfound()
+writerefsfound(void)
 {
 	if (refsfound == NULL) {
 		if ((refsfound = myfopen(temp1, "w")) == NULL) {

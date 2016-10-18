@@ -42,7 +42,7 @@
 
 #define	IFLEVELINC	5	/* #if nesting level size increment */
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: scanner.l,v 1.4 2000/05/05 17:35:00 broeker Exp $";
 
 /* keyword text for fast testing of keywords in the scanner */
 extern	char	enumtext[];
@@ -75,7 +75,7 @@ static	int	*maxifbraces;		/* maximum brace count within #if */
 static	int	*preifbraces;		/* brace count before #if */
 static	int	parens;			/* unmatched left parenthesis count */
 static	BOOL	ppdefine;		/* preprocessor define statement */
-static	BOOL	psuedoelif;		/* psuedo-#elif */
+static	BOOL	pseudoelif;		/* pseudo-#elif */
 static	BOOL	oldtype;		/* next identifier is an old type */
 static	BOOL	rules;			/* lex/yacc rules */
 static	BOOL	sdl;			/* sdl file */
@@ -86,14 +86,27 @@ static	int	templateparens;		/* function template outer parentheses count */
 static	int	typedefbraces = -1;	/* initial typedef brace count */
 static	int	token;			/* token found */
 
-void	multicharconstant();
-int	skipcomment_input ();
 
+void	multicharconstant(char terminator);
+int	skipcomment_input(void);
+int	comment(void);
+
+#ifdef FLEX_SCANNER
 #define YY_INPUT(buf,result,max_size) \
 	{\
 		int c = skipcomment_input (); \
 		result = (c == EOF) ? YY_NULL : (buf[0] = c, 1); \
 	}
+#else
+/* Assume this is the AT&T/SCO style lex */
+#undef	input
+#define input()  ((yytchar=(yytchar=yysptr>yysbuf?*(unsigned char *)--yysptr:getc(yyin))=='/'?comment():yytchar)==EOF?0:yytchar)
+#define noncommentinput()  ((yytchar=yysptr>yysbuf?*--yysptr:getc(yyin))==EOF?0:yytchar)
+#undef	unput
+#define unput(c) (*yysptr++=(c))
+
+#endif
+
 %}
 identifier	[a-zA-Z_$][a-zA-Z_0-9$]*
 number		\.?[0-9][.0-9a-fA-FlLuUxX]*
@@ -189,22 +202,22 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 				goto endif;
 				/* NOTREACHED */
 			}
-			psuedoelif = YES;
+			pseudoelif = YES;
 			goto more;
 			/* NOTREACHED */
 		}
 \#[ \t]*ifn?(def)?	{ /* #if, #ifdef or #ifndef */
 			elseelif = NO;
-			if (psuedoelif == YES) {
-				psuedoelif = NO;
+			if (pseudoelif == YES) {
+				pseudoelif = NO;
 				goto elif;
 				/* NOTREACHED */
 			}
 			/* make sure there is room for the current brace count */
 			if (iflevel == miflevel) {
 				miflevel += IFLEVELINC;
-				maxifbraces = (int *) myrealloc(maxifbraces, miflevel * sizeof(int));
-				preifbraces = (int *) myrealloc(preifbraces, miflevel * sizeof(int));
+				maxifbraces = myrealloc(maxifbraces, miflevel * sizeof(int));
+				preifbraces = myrealloc(preifbraces, miflevel * sizeof(int));
 			}
 			/* push the current brace count */
 			preifbraces[iflevel] = braces;
@@ -218,7 +231,7 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 			if (iflevel > 0) {
 				
 				/* save the maximum brace count for this #if */
-				if (braces > maxifbraces[iflevel]) {
+				if (braces > maxifbraces[iflevel - 1]) {
 					maxifbraces[iflevel - 1] = braces;
 				}
 				/* restore the brace count to before the #if */
@@ -250,7 +263,7 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 				braces = 0;
 				classdef = NO;
 			}
-			if (braces == 0 || braces == 1 && classdef == YES) {
+			if (braces == 0 || (braces == 1 && classdef == YES)) {
 
 				/* if the end of an enum/struct/union definition */
 				if (esudef == YES) {
@@ -332,7 +345,7 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 			ppdefine = YES;
 			token = DEFINE;
 			if (compress == YES) {
-				yytext[0] = '\0';	/* compress the keyword */
+				yytext[0] = '\1';	/* compress the keyword */
 			}
 		findident:
 			first = yyleng - 1;
@@ -362,8 +375,8 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 
 			/* if a function definition */
 			/* note: "#define a (b) {" and "#if defined(a)\n#" are not */
-			if (braces == 0 && ppdefine == NO && yytext[0] != '#' && rules == NO ||
-			    braces == 1 && classdef == YES) {
+			if ((braces == 0 && ppdefine == NO && yytext[0] != '#' && rules == NO) ||
+			    (braces == 1 && classdef == YES)) {
 				fcndef = YES;
 				token = FCNDEF;
 				goto fcn;
@@ -412,7 +425,7 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 				int	c;
 				
 				/* skip to the end of the line */
-				warning("line too long", myylineno);
+				warning("line too long");
 				while ((c = skipcomment_input()) != LEXEOF) { 
 					if (c == '\n') {
 						unput(c);
@@ -422,7 +435,7 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 			}
 			/* truncate a long symbol */
 			if (yyleng - first > PATLEN) {
-				warning("symbol too long", myylineno);
+				warning("symbol too long");
 				yyleng = first + PATLEN;
 				yytext[yyleng] = '\0';
 			}
@@ -553,11 +566,11 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 			char	*s;
 			
 			s = strpbrk(yytext, "\"<");
-			incfile(s + 1, *s);
+			incfile(s + 1, s);
 			first = s - yytext;
 			last = yyleng;
 			if (compress == YES) {
-				yytext[0] = '\1';	/* compress the keyword */
+				yytext[0] = '\2';	/* compress the keyword */
 			}
 			yymore();
 			return(INCLUDE);
@@ -572,14 +585,13 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 %%
 
 void
-initscanner(srcfile)
-char	*srcfile;
+initscanner(char *srcfile)
 {
 	char	*s;
 	
 	if (maxifbraces == NULL) {
-		maxifbraces = (int *) mymalloc(miflevel * sizeof(int));
-		preifbraces = (int *) mymalloc(miflevel * sizeof(int));
+		maxifbraces = mymalloc(miflevel * sizeof(int));
+		preifbraces = mymalloc(miflevel * sizeof(int));
 	}
 	first = 0;		/* buffer index for first char of symbol */
 	last = 0;		/* buffer index for last char of symbol */
@@ -601,7 +613,7 @@ char	*srcfile;
 	lex = NO;		/* lex file */
 	parens = 0;		/* unmatched left parenthesis count */
 	ppdefine = NO;		/* preprocessor define statement */
-	psuedoelif = NO;	/* psuedo-#elif */
+	pseudoelif = NO;	/* pseudo-#elif */
 	oldtype = NO;		/* next identifier is an old type */
 	rules = NO;		/* lex/yacc rules */
 	sdl = NO;		/* sdl file */
@@ -643,9 +655,9 @@ char	*srcfile;
 }
 
 int
-skipcomment_input ()
+skipcomment_input(void)
 {
-	register int	c;
+	int	c;
 
 	if ((c = getc (yyin)) == '/') {
 		return comment ();
@@ -657,7 +669,7 @@ skipcomment_input ()
 }
 
 int
-comment_input ()
+comment_input(void)
 {
 	int c;
 
@@ -666,9 +678,10 @@ comment_input ()
 	return c;
 }
 
-comment()
+int
+comment(void)
 {
-	register int	c, lastc;
+	int	c, lastc;
 
 	do {
 		if ((c = getc(yyin)) == '*') {	/* C comment */
@@ -706,10 +719,9 @@ comment()
 }
 
 void
-multicharconstant(terminator)
-register char	terminator;
+multicharconstant(char terminator)
 {
-	register char	c;
+	char	c;
 
 	/* scan until the terminator is found */
 	while ((c = yytext[yyleng++] = comment_input()) != terminator) {
@@ -740,7 +752,7 @@ register char	terminator;
 			
 		default:
 			/* change a control character to a blank */
-			if (!isprint(c)) {
+			if (!isprint((unsigned char)c)) {
 				yytext[yyleng - 1] = ' ';
 			}
 		}

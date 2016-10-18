@@ -30,19 +30,19 @@
  DAMAGE. 
  =========================================================================*/
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: mygetenv.c,v 1.2 2000/05/03 22:02:10 petr Exp $";
+
+#include <stdlib.h>
 
 /* return the non-null environment value or the default argument */
 
 char	*
-mygetenv(variable, deflt)
-char	*variable, *deflt;
+mygetenv(char *variable, char *deflt)
 {
 	char	*value;
-	char	*getenv();
 
 	value = getenv(variable);
-	if (value == (char *) 0 || *value == '\0') {
+	if (value == NULL || *value == '\0') {
 		return(deflt);
 	}
 	return(value);

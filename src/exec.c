@@ -35,30 +35,33 @@
  *	process execution functions
  */
 
+#include <unistd.h>
 #include "global.h"
 #include <stdarg.h>
-#include <wait.h>
+#include <sys/wait.h>
+#include <sys/types.h>      /* pid_t */
 #include <curses.h>
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: exec.c,v 1.2 2000/05/03 22:02:10 petr Exp $";
 
-static	SIGTYPE	(*oldsigquit)();	/* old value of quit signal */
-static	SIGTYPE	(*oldsighup)();		/* old value of hangup signal */
-static	SIGTYPE	(*oldsigstp)();
+static	RETSIGTYPE	(*oldsigquit)();	/* old value of quit signal */
+static	RETSIGTYPE	(*oldsighup)();		/* old value of hangup signal */
+static	RETSIGTYPE	(*oldsigstp)();
 
-typedef int	pid_t;
-static	int	join(), myexecvp();
-static	pid_t	myfork();
+static	int	join(pid_t p);
+static	int	myexecvp(char *a, char **args);
+static	pid_t	myfork(void);
 
 /* execute forks and executes a program or shell script, waits for it to
  * finish, and returns its exit code.
  */
 
 /*VARARGS1*/
+int
 execute(char *a, ...)	/* note: "exec" is already defined on u370 */
 {
 	va_list	ap;
-	int	exitcode;
+	int	exitcode = -1;	/* initialize, to avoid warning */
 	char	*argv[BUFSIZ];
 	pid_t	p;
 	pid_t	myfork();
@@ -93,11 +96,8 @@ execute(char *a, ...)	/* note: "exec" is already defined on u370 */
  */
 
 static int
-myexecvp(a, args)
-char	*a;
-char	**args;
+myexecvp(char *a, char **args)
 {
-	register int	i;
 	char	msg[MSGLEN + 1];
 	
 	/* modify argv[0] to reference the last component of its path name */
@@ -115,7 +115,7 @@ char	**args;
 /* myfork acts like fork but also handles signals */
 
 static pid_t
-myfork() 
+myfork(void)
 {
 	pid_t	p;		/* process number */
 
@@ -144,8 +144,7 @@ myfork()
 /* join is the compliment of fork */
 
 static int
-join(p) 
-pid_t	p; 
+join(pid_t p) 
 {
 	int	status;  
 	pid_t	w;

@@ -37,19 +37,17 @@
 
 #include "global.h"
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: history.c,v 1.2 2000/05/03 22:02:10 petr Exp $";
 
 static	struct cmd *tail, *current;
 
 /* add a cmd to the history list */
 void
-addcmd( f, s)
-int f;		/* field number */
-char *s;	/* command text */
+addcmd(int f, char *s)		/* field number and command text */
 {
 	struct cmd *h;
 
-	h = (struct cmd *) mymalloc(sizeof(struct cmd));
+	h = mymalloc(sizeof(struct cmd));
 	if( tail) {
 		tail->next = h;
 		h->next = 0;
@@ -66,7 +64,7 @@ char *s;	/* command text */
 
 /* return previous history item */
 struct cmd *
-prevcmd()
+prevcmd(void)
 {
 	if( current) {
 		if( current->prev)	/* stay on first item */
@@ -76,12 +74,12 @@ prevcmd()
 	} else if( tail)
 		return current = tail;
 	else 
-		return (struct cmd *) 0;
+		return NULL;
 }
 
 /* return next history item */
 struct cmd *
-nextcmd()
+nextcmd(void)
 {
 	if( current) {
 		if( current->next)	/* stay on first item */
@@ -89,17 +87,17 @@ nextcmd()
 		else
 			return current;
 	} else 
-		return (struct cmd *) 0;
+		return NULL;
 }
 /* reset current to tail */
 void
-resetcmd()
+resetcmd(void)
 {
 	current = 0;
 }
 
 struct cmd *
-currentcmd()
+currentcmd(void)
 {
 	return current;
 }

@@ -37,7 +37,7 @@
 
 #include "global.h"
 
-static char const rcsid[] = "$Id$";
+static char const rcsid[] = "$Id: lookup.c,v 1.2 2000/05/03 19:07:09 petr Exp $";
 
 /* keyword text for fast testing of keywords in the scanner */
 char	enumtext[] = "enum";
@@ -53,45 +53,46 @@ char	uniontext[] = "union";
  * for old databases.
  */
 struct	keystruct keyword[] = {
-	"#define",	' ',	NULL,	/* must be table entry 0 */
-	"#include",	' ',	NULL,	/* must be table entry 1 */
-	"break",	'\0',	NULL,	/* rarely in cross-reference */
-	"case",		' ',	NULL,
-	"char",		' ',	NULL,
-	"continue",	'\0',	NULL,	/* rarely in cross-reference */
-	"default",	'\0',	NULL,	/* rarely in cross-reference */
-	"do",		'\0',	NULL,
-	"double",	' ',	NULL,
-	"\t",		'\0',	NULL,	/* must be the table entry 9 */
-	"\n",		'\0',	NULL,	/* must be the table entry 10 */
-	"else",		' ',	NULL,
-	enumtext,	' ',	NULL,
-	externtext,	' ',	NULL,
-	"float",	' ',	NULL,
-	"for",		'(',	NULL,
-	"goto",		' ',	NULL,
-	"if",		'(',	NULL,
-	"int",		' ',	NULL,
-	"long",		' ',	NULL,
-	"register",	' ',	NULL,
-	"return",	'\0',	NULL,
-	"short",	' ',	NULL,
-	"sizeof",	'\0',	NULL,
-	"static",	' ',	NULL,
-	structtext,	' ',	NULL,
-	"switch",	'(',	NULL,
-	typedeftext,	' ',	NULL,
-	uniontext,	' ',	NULL,
-	"unsigned",	' ',	NULL,
-	"void",		' ',	NULL,
-	"while",	'(',	NULL,
+	{"",		'\0',	NULL},	/* dummy entry */
+	{"#define",	' ',	NULL},	/* must be table entry 1 */
+	{"#include",	' ',	NULL},	/* must be table entry 2 */
+	{"break",	'\0',	NULL},	/* rarely in cross-reference */
+	{"case",	' ',	NULL},
+	{"char",	' ',	NULL},
+	{"continue",	'\0',	NULL},	/* rarely in cross-reference */
+	{"default",	'\0',	NULL},	/* rarely in cross-reference */
+	{"double",	' ',	NULL},
+	{"\t",		'\0',	NULL},	/* must be the table entry 9 */
+	{"\n",		'\0',	NULL},	/* must be the table entry 10 */
+	{"else",	' ',	NULL},
+	{enumtext,	' ',	NULL},
+	{externtext,	' ',	NULL},
+	{"float",	' ',	NULL},
+	{"for",		'(',	NULL},
+	{"goto",	' ',	NULL},
+	{"if",		'(',	NULL},
+	{"int",		' ',	NULL},
+	{"long",	' ',	NULL},
+	{"register",	' ',	NULL},
+	{"return",	'\0',	NULL},
+	{"short",	' ',	NULL},
+	{"sizeof",	'\0',	NULL},
+	{"static",	' ',	NULL},
+	{structtext,	' ',	NULL},
+	{"switch",	'(',	NULL},
+	{typedeftext,	' ',	NULL},
+	{uniontext,	' ',	NULL},
+	{"unsigned",	' ',	NULL},
+	{"void",	' ',	NULL},
+	{"while",	'(',	NULL},
 	
 	/* these keywords are not compressed */
-	"auto",		' ',	NULL,
-	"fortran",	' ',	NULL,
-	"const",	' ',	NULL,
-	"signed",	' ',	NULL,
-	"volatile",	' ',	NULL,
+	{"do",		'\0',	NULL},
+	{"auto",	' ',	NULL},
+	{"fortran",	' ',	NULL},
+	{"const",	' ',	NULL},
+	{"signed",	' ',	NULL},
+	{"volatile",	' ',	NULL},
 };
 #define KEYWORDS	(sizeof(keyword) / sizeof(struct keystruct))
 
@@ -102,12 +103,12 @@ static	struct	keystruct *hashtab[HASHMOD]; /* pointer table */
 /* put the keywords into the symbol table */
 
 void
-initsymtab()
+initsymtab(void)
 {
-	register int	i, j;
-	register struct	keystruct *p;
+	int	i, j;
+	struct	keystruct *p;
 	
-	for (i = 0; i < KEYWORDS; ++i) {
+	for (i = 1; i < KEYWORDS; ++i) {
 		p = &keyword[i];
 		j = hash(p->text) % HASHMOD;
 		p->next = hashtab[j];
@@ -118,10 +119,9 @@ initsymtab()
 /* see if this identifier is a keyword */
 
 char *
-lookup(ident)
-register char	*ident;
+lookup(char *ident)
 {
-	register struct	keystruct *p;
+	struct	keystruct *p;
 	int	c;
 	
 	/* look up the identifier in the keyword table */
@@ -138,12 +138,11 @@ register char	*ident;
 }
 
 /* form hash value for string */
-
-hash(ss)
-register char	*ss;
+int
+hash(char *ss)
 {
-	register int	i;
-	register unsigned char 	*s = (unsigned char *)ss;
+	int	i;
+	unsigned char 	*s = (unsigned char *)ss;
 	
 	for (i = 0; *s != '\0'; )
 		i += *s++;	/* += is faster than <<= for cscope */
