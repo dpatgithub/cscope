@@ -30,7 +30,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: global.h,v 1.22 2002/07/28 15:40:07 broeker Exp $ */
+/* $Id: global.h,v 1.24 2003/06/12 17:11:38 broeker Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
@@ -98,6 +98,10 @@ char	*memset();
 # endif /* !sun */
 #endif
 
+/* Un-comment this if you're on a filesystem that doesn't support
+ * filenames longer than 14 characters */
+/* HBB FIXME 20030302: should have an autoconf test for this: */
+/* #define SHORT_NAMES_ONLY */
 
 /* Just in case autoconf didn't correctly flag HAVE_FIXKEYPAD */
 #ifndef HAVE_FIXKEYPAD 
@@ -223,6 +227,7 @@ extern	BOOL	invertedindex;	/* the database has an inverted index */
 extern	BOOL	isuptodate;	/* consider the crossref up-to-date */
 extern	BOOL	kernelmode;	/* don't use DFLT_INCDIR - bad for kernels */
 extern	BOOL	linemode;	/* use line oriented user interface */
+extern	BOOL	verbosemode;	/* print extra information on line mode */
 extern	BOOL	recurse_dir;	/* recurse dirs when searching for src files */
 extern	char	*namefile;	/* file of file names */
 extern	BOOL	ogs;		/* display OGS book and subsystem names */

@@ -39,12 +39,11 @@
 #include <stdlib.h>
 #include <sys/types.h>	/* needed by stat.h and dirent.h */
 #include <dirent.h>
-#include <stdlib.h>
 #include <sys/stat.h>	/* stat */
 #include "global.h"
 #include "vp.h"		/* vpdirs and vpndirs */
 
-static char const rcsid[] = "$Id: dir.c,v 1.17 2002/03/16 15:20:27 broeker Exp $";
+static char const rcsid[] = "$Id: dir.c,v 1.19 2003/06/02 10:42:59 broeker Exp $";
 
 #define	DIRSEPS	" ,:"	/* directory list separators */
 #define	DIRINC	10	/* directory list size increment */
@@ -159,7 +158,7 @@ addsrcdir(char *dir)
 
 	/* make sure it is a directory */
 	if (lstat(compath(dir), &statstruct) == 0 && 
-	    (statstruct.st_mode & S_IFDIR)) {
+	    S_ISDIR(statstruct.st_mode)) {
 
 		/* note: there already is a source directory list */
 		if (nsrcdirs == msrcdirs) {
@@ -227,7 +226,7 @@ addincdir(char *name, char *path)
 
 	/* make sure it is a directory */
 	if (lstat(compath(path), &statstruct) == 0 && 
-	    (statstruct.st_mode & S_IFDIR)) {
+	    S_ISDIR(statstruct.st_mode)) {
 		if (incdirs == NULL) {
 			incdirs = mymalloc(mincdirs * sizeof(char *));
 			incnames = mymalloc(mincdirs * sizeof(char *));
@@ -494,7 +493,7 @@ scan_dir(const char *adir, BOOL recurse_dir)
 				if (lstat(path,&buf) == 0) {
 					file = entry->d_name;
 					if (recurse_dir 
-                                            && (buf.st_mode & S_IFDIR) ) {
+                                            && S_ISDIR(buf.st_mode) ) {
 						scan_dir(path, recurse_dir);
 					}
 					else if (
@@ -503,7 +502,7 @@ scan_dir(const char *adir, BOOL recurse_dir)
 #else
 						 entry->d_ino != 0
 #endif
-						 && issrcfile(path)
+						 && issrcfile(mybasename(path))
 						 && infilelist(path) == NO) {
 					  addsrcfile(path);
 					}
@@ -525,7 +524,7 @@ issrcfile(char *file)
 
 	/* if there is a file suffix */
 	if ((s = strrchr(file, '.')) != NULL && *++s != '\0') {
-		
+
 		/* if an SCCS or versioned file */
 		if (file[1] == '.' && file + 2 != s) { /* 1 character prefix */
 			switch (*file) {
@@ -558,7 +557,7 @@ issrcfile(char *file)
 				/* some directories have 2 character
 				   suffixes so make sure it is a file */
 				if (lstat(file, &statstruct) == 0 && 
-				    (statstruct.st_mode & S_IFREG)) {
+				    S_ISREG(statstruct.st_mode)) {
 					return(YES);
 				}
 			}
@@ -570,7 +569,7 @@ issrcfile(char *file)
 			   0) {
 				/* make sure it is a file */
 				if (lstat(file, &statstruct) == 0 && 
-					(statstruct.st_mode & S_IFREG)) {
+					S_ISREG(statstruct.st_mode)) {
 					return(YES);
 				}
 			}

@@ -1,5 +1,26 @@
-(2002/08/15 - broeker) Changed all version identifiers to 15.4 for
-		       the release.
+(2003/08/14 - broeker) Cleaned up man page, INSTALL and TODO files.
+(2003/08/14 - broeker) Have configure check for <regex.h>.  Bail out if none
+	               found.
+(2003/08/14 - broeker) New options --help and --version.
+(2003/06/12 - broeker) New option -v to output progress updates even in
+		       line mode.  To be used by interface kscope.
+(2003/06/02 - broeker) Use the basename of files only to test for SCCS/RCS
+	               files in -R traversal.
+(2003/04/29 - broeker) Check that a src file is a regular file before trying to
+	               scan it.  Change from S_IFDIR/S_IFREG bit tests to 
+		       macros S_ISDIR/S_ISREG.
+(2003/03/05 - broeker) Remove '-y' option from pipe call to utility "sort".
+	               It's long since deprecated, and some modern versions
+		       will barf seeing it.
+(2003/03/02 - broeker) Don't restrict to 14 character filenames any longer.
+(2003/01/23 - broeker) Update to latest auto* tools.  First step towards
+                       integration of GNOME GUI version.
+(2002/12/11 - broeker) Get rid of deprecated ={...} style actions in egrep.y.
+	               Use plain {...} instead.
+(2002/10/29 - broeker) Fix bug #588671: disprefs was still 0 if only 1 very
+	               long reference output shown by curses display.
+(2002/08/27 - broeker) Fix bug #600494: use mygetenv() for HOME, and provide
+	               a fall-back if it's not there.
 (2002/08/15 - broeker) DOS/Cygwin bugfix: avoid setmode() if fopen() failed.
 (2002/07/27 - broeker) Yet another round of Cygwin-related fixes.  Do the 
 		       #include <fcntl.h> early enough, so checks for 

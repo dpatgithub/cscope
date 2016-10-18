@@ -53,6 +53,7 @@
 
 /* defaults for unset environment variables */
 #define	EDITOR	"vi"
+#define HOME	"/"     /* no $HOME --> use root directory */
 #define	SHELL	"sh"
 #define LINEFLAG "+%s"	/* default: used by vi and emacs */
 #define TMPDIR	"/tmp"
@@ -60,7 +61,7 @@
 #define DFLT_INCDIR "/usr/include"
 #endif
 
-static char const rcsid[] = "$Id: main.c,v 1.27 2002/07/28 15:40:07 broeker Exp $";
+static char const rcsid[] = "$Id: main.c,v 1.31 2003/08/14 14:36:17 broeker Exp $";
 
 /* note: these digraph character frequencies were calculated from possible 
    printable digraphs in the cross-reference for the C compiler */
@@ -89,6 +90,7 @@ BOOL	invertedindex;		/* the database has an inverted index */
 BOOL	isuptodate;		/* consider the crossref up-to-date */
 BOOL	kernelmode;		/* don't use DFLT_INCDIR - bad for kernels */
 BOOL	linemode = NO;		/* use line oriented user interface */
+BOOL	verbosemode = NO;	/* print extra information on line mode */
 BOOL	recurse_dir = NO;	/* recurse dirs when searching for src files */
 char	*namefile;		/* file of file names */
 BOOL	ogs;			/* display OGS book and subsystem names */
@@ -137,6 +139,24 @@ main(int argc, char **argv)
 	
 	/* set the options */
 	while (--argc > 0 && (*++argv)[0] == '-') {
+		/* HBB 20030814: add GNU-style --help and --version
+		 * options */
+	  	if (strequal(argv[0], "--help")
+		    || strequal(argv[0], "-h")) {
+			longusage();
+			myexit(0);
+		}
+		if (strequal(argv[0], "--version")
+		    || strequal(argv[0], "-V")) {
+#if CCS
+			displayversion = YES;
+#else
+			fprintf(stderr, "%s: version %d%s\n", argv0,
+				FILEVERSION, FIXVERSION);
+			myexit(0);
+#endif
+		}
+
 		for (s = argv[0] + 1; *s != '\0'; s++) {
 			
 			/* look for an input field number */
@@ -160,15 +180,6 @@ main(int argc, char **argv)
 				--argc;
 				++argv;
 				goto lastarg;
-			case 'V':	/* print the version number */
-#if CCS
-				displayversion = YES;
-				break;
-#else
-				(void) fprintf(stderr, "%s: version %d%s\n", argv0,
-					FILEVERSION, FIXVERSION);
-				myexit(0);
-#endif
 			case 'b':	/* only build the cross-reference */
 				buildonly = YES;
 				linemode  = YES;
@@ -186,9 +197,6 @@ main(int argc, char **argv)
 			case 'e':	/* suppress ^E prompt between files */
 				editallprompt = NO;
 				break;
-			case 'h':
-				(void) longusage();
-				myexit(1);
 			case 'k':	/* ignore DFLT_INCDIR */
 				kernelmode = YES;
 				break;
@@ -197,6 +205,9 @@ main(int argc, char **argv)
 				/* FALLTHROUGH */
 			case 'l':
 				linemode = YES;
+				break;
+			case 'v':
+				verbosemode = YES;
 				break;
 			case 'o':	/* display OGS book and subsystem names */
 				ogs = YES;
@@ -237,7 +248,7 @@ main(int argc, char **argv)
 				case 'f':	/* alternate cross-reference file */
 					reffile = s;
 					(void) strcpy(path, s);
-#if !BSD || sun	/* suns can access Amdahl databases */
+#ifdef SHORT_NAMES_ONLY 
 					/* System V has a 14 character limit */
 					s = mybasename(path);
 					if (strlen(s) > 11) {
@@ -297,7 +308,7 @@ lastarg:
 	editor = mygetenv("EDITOR", EDITOR);
 	editor = mygetenv("VIEWER", editor);		/* use viewer if set */
 	editor = mygetenv("CSCOPE_EDITOR", editor);	/* has last word */
-	home = getenv("HOME");
+	home = mygetenv("HOME", HOME);
 	shell = mygetenv("SHELL", SHELL);
 	lineflag = mygetenv("CSCOPE_LINEFLAG", LINEFLAG);
 	lineflagafterfile = getenv("CSCOPE_LINEFLAG_AFTER_FILE")?1:0;
@@ -520,8 +531,8 @@ lastarg:
 
 		/* build the cross-reference */
 		initcompress();
-		if (linemode == NO )    /* display if verbose as well */
-                    postmsg("Building cross-reference...");    		    
+		if (linemode == NO || verbosemode == YES)    /* display if verbose as well */
+                    postmsg("Building cross-reference...");
 		build();
 		if (linemode == NO )
                     postmsg("");	/* clear any build progress message */
@@ -770,7 +781,7 @@ exitcurses(void)
 static void
 usage(void)
 {
-	(void) fprintf(stderr, "Usage: cscope [-bcCdehklLqRTuUV] [-f file] [-F file] [-i file] [-I dir] [-s dir]\n");
+	(void) fprintf(stderr, "Usage: cscope [-bcCdehklLqRTuUvV] [-f file] [-F file] [-i file] [-I dir] [-s dir]\n");
 	(void) fprintf(stderr, "              [-p number] [-P path] [-[0-8] pattern] [source files]\n");
 }
 
@@ -803,6 +814,7 @@ longusage(void)
 	(void) fprintf(stderr, "-T            Use only the first eight characters to match against C symbols.\n");
 	(void) fprintf(stderr, "-U            Check file time stamps.\n");
 	(void) fprintf(stderr, "-u            Unconditionally build the cross-reference file.\n");
+	(void) fprintf(stderr, "-v            Be more verbose in line mode.\n");
 	(void) fprintf(stderr, "-V            Print the version number.\n");
 	(void) fprintf(stderr, "\n");
 	(void) fprintf(stderr, "Please see the manpage for more information.\n");
