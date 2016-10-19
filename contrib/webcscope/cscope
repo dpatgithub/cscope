@@ -431,7 +431,7 @@ ENDOFTEXT2
 sub Feedback {
 
   $feedback  = "<font size=-1>";
-  $feedback .= '$Id$<br>';
+  $feedback .= '$Id: cscope,v 1.1 2001/06/29 14:20:16 petr Exp $<br>';
   $feedback .= "$comment{name}<i>&lt;";
   $feedback .= "<a href=\"mailto:$comment{email}\">";
   $feedback .= "$comment{email}</a>&gt;</i></font>";
