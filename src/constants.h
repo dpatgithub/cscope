@@ -30,7 +30,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: constants.h,v 1.12 2002/07/11 14:23:45 broeker Exp $ */
+/* $Id$ */
 
 /*	cscope - interactive C symbol cross-reference
  *

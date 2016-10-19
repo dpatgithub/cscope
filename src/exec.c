@@ -49,7 +49,7 @@
 #include <curses.h>
 #endif
 
-static char const rcsid[] = "$Id: exec.c,v 1.8 2002/07/28 15:40:07 broeker Exp $";
+static char const rcsid[] = "$Id$";
 
 static	RETSIGTYPE	(*oldsigquit)(int); /* old value of quit signal */
 static	RETSIGTYPE	(*oldsighup)(int); /* old value of hangup signal */

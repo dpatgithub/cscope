@@ -48,7 +48,7 @@
 # define CLOSE_ON_EXEC 1
 #endif
 
-static char const rcsid[] = "$Id: mypopen.c,v 1.11 2002/08/15 16:07:07 broeker Exp $";
+static char const rcsid[] = "$Id$";
 
 static pid_t popen_pid[20];
 static RETSIGTYPE (*tstat)(int);

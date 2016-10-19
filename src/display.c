@@ -54,7 +54,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
-static char const rcsid[] = "$Id: display.c,v 1.22 2003/06/12 17:11:38 broeker Exp $";
+static char const rcsid[] = "$Id$";
 
 int	booklen;		/* OGS book name display field length */
 int	*displine;		/* screen line of displayed reference */

@@ -37,7 +37,7 @@
 #include "library.h"
 #include "global.h"
 
-static char const rcsid[] = "$Id: alloc.c,v 1.5 2002/07/28 15:40:07 broeker Exp $";
+static char const rcsid[] = "$Id$";
 
 static	void	*alloctest(void *p);
 

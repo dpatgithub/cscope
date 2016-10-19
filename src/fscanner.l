@@ -50,7 +50,7 @@
 
 #define	IFLEVELINC	5	/* #if nesting level size increment */
 
-static char const rcsid[] = "$Id: fscanner.l,v 1.9 2002/06/20 16:25:33 broeker Exp $";
+static char const rcsid[] = "$Id$";
 
 int	first;	/* buffer index for first char of symbol */
 int	last;	/* buffer index for last char of symbol */

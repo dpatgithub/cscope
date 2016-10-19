@@ -43,7 +43,7 @@
 #include "global.h"
 #include "vp.h"		/* vpdirs and vpndirs */
 
-static char const rcsid[] = "$Id: dir.c,v 1.19 2003/06/02 10:42:59 broeker Exp $";
+static char const rcsid[] = "$Id$";
 
 #define	DIRSEPS	" ,:"	/* directory list separators */
 #define	DIRINC	10	/* directory list size increment */

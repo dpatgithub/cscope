@@ -38,7 +38,7 @@
 #include "global.h"
 #include "lookup.h"
 
-static char const rcsid[] = "$Id: lookup.c,v 1.3 2001/06/01 12:43:24 broeker Exp $";
+static char const rcsid[] = "$Id$";
 
 /* keyword text for fast testing of keywords in the scanner */
 char	enumtext[] = "enum";
