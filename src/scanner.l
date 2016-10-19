@@ -375,7 +375,7 @@ class{ws}+{identifier}({wsnl}|[a-zA-Z0-9_():])*\{	{	/* class definition */
 			tagdef = '\0';
 			goto more;
 		}  			
-{identifier}/{ws}*\(({wsnl}|a-zA-Z0-9_*&[\]=,.])*\)({wsnl}|[()])*[:a-zA-Z_#{]	{
+{identifier}/{ws}*\(({wsnl}|a-zA-Z0-9_*&[\]=,.:])*\)({wsnl}|[()])*[:a-zA-Z_#{]	{
 			
 			/* warning: "if (...)" must not overflow yytext, so the content
 			   of function argument definitions is restricted, in particular
@@ -574,6 +574,8 @@ class{ws}+{identifier}({wsnl}|[a-zA-Z0-9_():])*\{	{	/* class definition */
 			char	*s;
 			
 			s = strpbrk(yytext, "\"<");
+			if (!s)
+				return(LEXERR);
 			incfile(s + 1, s);
 			/* HBB: avoid pointer mismatch if yytext is
 			 * unsigned, or a pointer */
